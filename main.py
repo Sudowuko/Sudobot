@@ -36,27 +36,29 @@ async def setToken(message, arg):
     doc_ref.set({
         'tokens': int(arg),
     })
-    doc = doc_ref.get()
-    await message.send(f"{message.author} has {doc.to_dict()}")
+    tokens = doc_ref.get().get("tokens")
+
+    await message.send(f"{message.author} tokens were set to {tokens} tokens")
 
 @client.command()
 async def addToken(message, arg):
     doc_ref = db.collection('users').document(str(message.author.id))
-    doc = doc_ref.get()
-
-    await message.send(f"{message.author} had {doc.to_dict()}")
-    tokens = doc_ref.get().get("tokens")
+    tokens = doc_ref.get().get("tokens") + int(arg)
     doc_ref.set({
-        'tokens': tokens + int(arg),
+        'tokens': tokens,
     })
-    doc = doc_ref.get()
-    await message.send(f"{message.author} now has {doc.to_dict()}")
+    await message.send(f"Added {int(arg)} tokens. {message.author} now has {tokens} tokens")
 
 @client.command()
 async def viewToken(message):
     doc_ref = db.collection('users').document(str(message.author.id))
-    doc = doc_ref.get()
-    await message.send(f"{message.author} has {doc.to_dict()}")
+    tokens = doc_ref.get().get("tokens")
+    await message.send(f"{message.author} currently has {tokens} tokens")
 
+@client.command()
+async def checkUsername(message):
+    doc_ref = db.collection('users').document(str(message.author.id))
+    username = doc_ref.get().get("username")
+    await message.send(f"Username is {username}")
     
 client.run(token)
