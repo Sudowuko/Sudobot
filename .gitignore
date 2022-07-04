@@ -1,3 +1,5 @@
 # .gitignore
 TOKEN.txt
 *.json
+.env
+venv

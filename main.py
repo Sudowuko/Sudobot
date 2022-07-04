@@ -6,9 +6,7 @@ import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
 from discord.ext import commands
-from dotenv import load_dotenv
 
-load_dotenv()
 with open("config.json") as f:
     config = json.load(f)
     token = config["TOKEN"]
