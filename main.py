@@ -1,6 +1,4 @@
 import discord
-import os
-import random
 import json
 import firebase_admin
 from firebase_admin import credentials
@@ -25,9 +23,11 @@ intents.members = True
 
 client = commands.Bot(intents=intents, command_prefix='!')
 
+
 @client.event
 async def on_ready():
     print("Logged in as a bot {0.user}".format(client))
+
 
 @client.command()
 async def setToken(ctx, arg):
@@ -39,7 +39,9 @@ async def setToken(ctx, arg):
 
     await ctx.send(f"{ctx.author} tokens were set to {tokens} tokens")
 
+
 @client.command()
+@commands.has_permissions(administrator=True)
 async def addToken(ctx, arg):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     tokens = doc_ref.get().get("tokens") + int(arg)
@@ -48,11 +50,25 @@ async def addToken(ctx, arg):
     })
     await ctx.send(f"Added {int(arg)} tokens. {ctx.author} now has {tokens} tokens")
 
+
 @client.command()
-async def viewToken(ctx):
-    doc_ref = db.collection('users').document(str(ctx.author.id))
-    tokens = doc_ref.get().get("tokens")
-    await ctx.send(f"{ctx.author} currently has {tokens} tokens")
+async def viewToken(ctx, arg=None):
+    if not arg:
+        user = ctx.author
+    else:
+        users = user_search(ctx.guild, arg)
+    if len(users) < 1:
+        await ctx.send(f"User {arg} not found")
+        return
+    elif len(users) > 1:
+        await ctx.send(f"User {arg} ambiguous, matches {[str(i) for i in users]}")
+        return
+    else:
+        user = users[0]
+        doc_ref = db.collection('users').document(str(user.id))
+        tokens = doc_ref.get().get("tokens")
+        await ctx.send(f"{user} currently has {tokens} tokens")
+
 
 @client.command()
 async def checkUsername(ctx):
@@ -64,15 +80,11 @@ async def checkUsername(ctx):
 @client.command()
 async def listusers(ctx):
     users = ctx.guild.members
-    doc_ref = db.collection('users').document(str(ctx.author.id))
-    username = doc_ref.get().get("username")
     await ctx.send(f"{[str(i) for i in users]}")
 
 
-"""
-user_lookup searches for a user in a guild by username#discriminator, username, or user_id
-"""
 def user_search(guild, userkey):
+    """user_search searches for a user in a guild by username#discriminator, username, or user_id"""
     users = guild.members
     results = []
     for i in users:
@@ -89,6 +101,7 @@ def user_search(guild, userkey):
 
 
 @client.command()
+@commands.has_permissions(administrator=True)
 async def importtokens(ctx):
     message = ctx.message.content
     errors = []
@@ -124,9 +137,10 @@ async def importtokens(ctx):
 
 
 @client.command()
+@commands.has_permissions(administrator=True)
 async def listalltokens(ctx):
     members = ctx.guild.members
-    tokens_table = [("Name","Tokens")]
+    tokens_table = [("Name", "Tokens")]
     for i in members:
         if i.bot:
             continue
