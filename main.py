@@ -20,43 +20,125 @@ firebase_admin.initialize_app(cred, {
 
 db = firestore.client()
 
-client = discord.Client()
+intents = discord.Intents.default()
+intents.members = True
 
-client = commands.Bot(command_prefix='!')
+client = commands.Bot(intents=intents, command_prefix='!')
 
 @client.event
 async def on_ready():
     print("Logged in as a bot {0.user}".format(client))
 
 @client.command()
-async def setToken(message, arg):
-    doc_ref = db.collection('users').document(str(message.author.id))
+async def setToken(ctx, arg):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.set({
         'tokens': int(arg),
     })
     tokens = doc_ref.get().get("tokens")
 
-    await message.send(f"{message.author} tokens were set to {tokens} tokens")
+    await ctx.send(f"{ctx.author} tokens were set to {tokens} tokens")
 
 @client.command()
-async def addToken(message, arg):
-    doc_ref = db.collection('users').document(str(message.author.id))
+async def addToken(ctx, arg):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
     tokens = doc_ref.get().get("tokens") + int(arg)
     doc_ref.set({
         'tokens': tokens,
     })
-    await message.send(f"Added {int(arg)} tokens. {message.author} now has {tokens} tokens")
+    await ctx.send(f"Added {int(arg)} tokens. {ctx.author} now has {tokens} tokens")
 
 @client.command()
-async def viewToken(message):
-    doc_ref = db.collection('users').document(str(message.author.id))
+async def viewToken(ctx):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
     tokens = doc_ref.get().get("tokens")
-    await message.send(f"{message.author} currently has {tokens} tokens")
+    await ctx.send(f"{ctx.author} currently has {tokens} tokens")
 
 @client.command()
-async def checkUsername(message):
-    doc_ref = db.collection('users').document(str(message.author.id))
+async def checkUsername(ctx):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
     username = doc_ref.get().get("username")
-    await message.send(f"Username is {username}")
-    
+    await ctx.send(f"Username is {username}")
+
+
+@client.command()
+async def listusers(ctx):
+    users = ctx.guild.members
+    doc_ref = db.collection('users').document(str(ctx.author.id))
+    username = doc_ref.get().get("username")
+    await ctx.send(f"{[str(i) for i in users]}")
+
+
+"""
+user_lookup searches for a user in a guild by username#discriminator, username, or user_id
+"""
+def user_search(guild, userkey):
+    users = guild.members
+    results = []
+    for i in users:
+        if i.name == userkey:
+            results.append(i)
+            continue
+        if i.id == userkey:
+            results.append(i)
+            continue
+        if str(i) == userkey:
+            results.append(i)
+            continue
+    return results
+
+
+@client.command()
+async def importtokens(ctx):
+    message = ctx.message.content
+    errors = []
+    message_list = message.split("\n")[1:]
+    users = {}
+    for i, row in enumerate(message_list):
+        columns = row.rsplit(maxsplit=1)
+        if len(columns) != 2:
+            errors.append(f"could not parse row {i+1}, must have 1 username and 1 token value per row")
+        username = columns[0]
+        try:
+            tokens = int(columns[1])
+        except ValueError:
+            errors.append(f"{username} is ambiguous on row {i+1}")
+        usermatch = user_search(ctx.guild, username)
+        if len(usermatch) > 1:
+            errors.append(f"{username} is ambiguous on row {i+1}")
+            continue
+        elif len(usermatch) == 0:
+            errors.append(f"{username} not found on row {i+1}")
+            continue
+        else:
+            user = usermatch[0]
+            users[str(user.id)] = tokens
+    if len(errors) > 0:
+        await ctx.send(f"Error(s) parsing import command: {errors}")
+    batch = db.batch()
+    for i, v in users.items():
+        doc_ref = db.collection('users').document(i)
+        batch.set(doc_ref, {"tokens": v}, merge=True)
+    batch.commit()
+    await ctx.send("Updated user tokens")
+
+
+@client.command()
+async def listalltokens(ctx):
+    members = ctx.guild.members
+    tokens_table = [("Name","Tokens")]
+    for i in members:
+        if i.bot:
+            continue
+        doc_ref = db.collection('users').document(str(i.id))
+        user = doc_ref.get()
+        if user.exists:
+            token = user.get('tokens')
+        else:
+            token = 0
+        tokens_table.append((str(i), token))
+    tokens_table[1:] = sorted(tokens_table[1:], key=lambda x: x[1], reverse=True)
+    message = [f"{name:<30}{tokens:<10}" for name, tokens in tokens_table]
+    await ctx.send("```" + "\n".join(message) + "```")
+
 client.run(token)
