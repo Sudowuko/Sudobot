@@ -4,6 +4,12 @@ import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
 from discord.ext import commands
+# from discord_components import DiscordComponents, Button, Select, SelectOption, Component
+# from discord_components import *
+
+import logging
+
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 
 with open("config.json") as f:
     config = json.load(f)
@@ -20,16 +26,40 @@ db = firestore.client()
 
 intents = discord.Intents.default()
 intents.members = True
+intents.message_content = True
 
-client = commands.Bot(intents=intents, command_prefix='!')
+sudo = commands.Bot(intents=intents, command_prefix='!')
 
+class Buttons(discord.ui.View):
+    def __init__(self, *, timeout=180):
+        super().__init__(timeout=timeout)
+    @discord.ui.button(label='Green', style=discord.ButtonStyle.green, custom_id='persistent_view:green')
+    async def green(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message('This is green.', ephemeral=True)
+    @discord.ui.button(label='Red', style=discord.ButtonStyle.red, custom_id='persistent_view:red')
+    async def red(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message('This is red.', ephemeral=True)
+    @discord.ui.button(label='Grey', style=discord.ButtonStyle.grey, custom_id='persistent_view:grey')
+    async def grey(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message('This is grey.', ephemeral=True)
 
-@client.event
+@sudo.command()
+async def buttons(ctx):
+    await ctx.send("This message has buttons!",view=Buttons())
+
+@sudo.event
 async def on_ready():
-    print("Logged in as a bot {0.user}".format(client))
+    print("checking print statement!")
+    print(discord.__version__)
+    print("Logged in as a bot {0.user}".format(sudo))
 
+@sudo.event
+async def ping(ctx):
+    await ctx.send('pong')
+    await sudo.process_commands('pong')
 
-@client.command()
+#sets user token amount
+@sudo.command()
 async def setToken(ctx, arg):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.set({
@@ -39,8 +69,8 @@ async def setToken(ctx, arg):
 
     await ctx.send(f"{ctx.author} tokens were set to {tokens} tokens")
 
-
-@client.command()
+#adds user token amount
+@sudo.command()
 @commands.has_permissions(administrator=True)
 async def addToken(ctx, arg):
     doc_ref = db.collection('users').document(str(ctx.author.id))
@@ -50,34 +80,23 @@ async def addToken(ctx, arg):
     })
     await ctx.send(f"Added {int(arg)} tokens. {ctx.author} now has {tokens} tokens")
 
-
-@client.command()
+#views user token amount
+@sudo.command()
 async def viewToken(ctx, arg=None):
-    if not arg:
-        user = ctx.author
-    else:
-        users = user_search(ctx.guild, arg)
-    if len(users) < 1:
-        await ctx.send(f"User {arg} not found")
-        return
-    elif len(users) > 1:
-        await ctx.send(f"User {arg} ambiguous, matches {[str(i) for i in users]}")
-        return
-    else:
-        user = users[0]
-        doc_ref = db.collection('users').document(str(user.id))
-        tokens = doc_ref.get().get("tokens")
-        await ctx.send(f"{user} currently has {tokens} tokens")
+    print("checking tokens!")
+    user = ctx.author
+    doc_ref = db.collection('users').document(str(user.id))
+    tokens = doc_ref.get().get("tokens")
+    await ctx.send(f"{user} currently has {tokens} tokens")
 
-
-@client.command()
+@sudo.command()
 async def checkUsername(ctx):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     username = doc_ref.get().get("username")
     await ctx.send(f"Username is {username}")
 
 
-@client.command()
+@sudo.command()
 async def listusers(ctx):
     users = ctx.guild.members
     await ctx.send(f"{[str(i) for i in users]}")
@@ -99,8 +118,8 @@ def user_search(guild, userkey):
             continue
     return results
 
-
-@client.command()
+#mass updates user tokens by taking in an import list 
+@sudo.command()
 @commands.has_permissions(administrator=True)
 async def importtokens(ctx):
     message = ctx.message.content
@@ -135,10 +154,10 @@ async def importtokens(ctx):
     batch.commit()
     await ctx.send("Updated user tokens")
 
-
-@client.command()
+# Creates a list of all the users with their token value
+@sudo.command()
 @commands.has_permissions(administrator=True)
-async def listalltokens(ctx):
+async def listtokens(ctx):
     members = ctx.guild.members
     tokens_table = [("Name", "Tokens")]
     for i in members:
@@ -155,4 +174,4 @@ async def listalltokens(ctx):
     message = [f"{name:<30}{tokens:<10}" for name, tokens in tokens_table]
     await ctx.send("```" + "\n".join(message) + "```")
 
-client.run(token)
+sudo.run(token, log_handler=handler)
