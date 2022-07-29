@@ -3,3 +3,5 @@ TOKEN.txt
 *.json
 .env
 venv
+requirements
+__pycache__
