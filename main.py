@@ -29,23 +29,38 @@ intents.members = True
 intents.message_content = True
 
 sudo = commands.Bot(intents=intents, command_prefix='!')
+ACount = 0
+BCount = 0
+CCount = 0
 
 class Buttons(discord.ui.View):
     def __init__(self, *, timeout=180):
         super().__init__(timeout=timeout)
+
+    # Team A
     @discord.ui.button(label='Green', style=discord.ButtonStyle.green, custom_id='persistent_view:green')
     async def green(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message('This is green.', ephemeral=True)
+        ACount = ACount + 1
+        await interaction.response.send_message(f'This is green. Count is {ACount}', ephemeral=True)
+
+    # Team B
     @discord.ui.button(label='Red', style=discord.ButtonStyle.red, custom_id='persistent_view:red')
     async def red(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message('This is red.', ephemeral=True)
+        await interaction.response.send_message(f'This is red. Count is {addCount(BCount)}', ephemeral=True)
+
+    # Team C
     @discord.ui.button(label='Grey', style=discord.ButtonStyle.grey, custom_id='persistent_view:grey')
     async def grey(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message('This is grey.', ephemeral=True)
+        await interaction.response.send_message(f'This is grey. Count is {addCount(CCount)}', ephemeral=True)
+
+def addCount(count):
+    count += 1
+    return count
 
 @sudo.command()
 async def buttons(ctx):
-    await ctx.send("This message has buttons!",view=Buttons())
+    print("user is: ", ctx.author)
+    await ctx.send("Daily Habit Challenge\n Family August Competition\n Hello fam!!\n\n This is your daily reminder that it's time to log your habits!!\n",view=Buttons(ctx))
 
 @sudo.event
 async def on_ready():
@@ -53,10 +68,15 @@ async def on_ready():
     print(discord.__version__)
     print("Logged in as a bot {0.user}".format(sudo))
 
-@sudo.event
+@sudo.command()
 async def ping(ctx):
     await ctx.send('pong')
-    await sudo.process_commands('pong')
+
+@sudo.command()
+async def setTeams(ctx, arg):
+    doc_ref = db.collection('teams').document("Team 1")
+    await ctx.send(f"{int(arg)} teams were made")
+
 
 #sets user token amount
 @sudo.command()
@@ -83,18 +103,18 @@ async def addToken(ctx, arg):
 #views user token amount
 @sudo.command()
 async def viewToken(ctx, arg=None):
-    print("checking tokens!")
     user = ctx.author
     doc_ref = db.collection('users').document(str(user.id))
     tokens = doc_ref.get().get("tokens")
+    print("ctx is: ", ctx)
     await ctx.send(f"{user} currently has {tokens} tokens")
 
 @sudo.command()
 async def checkUsername(ctx):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     username = doc_ref.get().get("username")
+    print("ctx is: ", ctx)
     await ctx.send(f"Username is {username}")
-
 
 @sudo.command()
 async def listusers(ctx):

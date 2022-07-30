@@ -5,3 +5,4 @@ TOKEN.txt
 venv
 requirements
 __pycache__
+discord.log
