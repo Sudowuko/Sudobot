@@ -3,11 +3,16 @@ import json
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
+import time
 from discord.ext import commands
-# from discord_components import DiscordComponents, Button, Select, SelectOption, Component
-# from discord_components import *
-
 import logging
+
+# TODO
+# Organize main.py into multiple files (Some of these commands don't exist yet)
+# File 1: Tokens (View, set, add, remove)
+# File 2: Shop commands (Shop list, can buy, select items, purchase)
+# File 3: Automated (Daily messages, count score, rule check)
+# File 4: Admin (Set teams, set users, set habits)
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 
@@ -29,6 +34,7 @@ intents.members = True
 intents.message_content = True
 
 sudo = commands.Bot(intents=intents, command_prefix='!')
+#sudoTasks = tasks.Bot(intents=intents, command_prefix='=')
 ACount = 0
 BCount = 0
 CCount = 0
@@ -69,13 +75,35 @@ async def on_ready():
     print("Logged in as a bot {0.user}".format(sudo))
 
 @sudo.command()
-async def ping(ctx):
-    await ctx.send('pong')
+async def setTeam(ctx, arg):
+    doc_ref = db.collection('teams').document("Team 1")
+    doc_ref.set({
+        'team name': arg,
+        'points: ': 0,
+        'members' : "",
+    })
+    await ctx.send(f"team {arg} was successfully made")
+
+#sets each person's username, team name, tokens, and habits are set
+@sudo.command()
+async def setUser(ctx):
+    doc_ref = db.collection('teams').document("Team 1")
+    doc_ref.set({
+        'user': ctx.author,
+        'team': "",
+        'tokens': doc_ref.get().get("tokens"),
+        'habit': "",
+    })
+    await ctx.send(f"user, ")
 
 @sudo.command()
-async def setTeams(ctx, arg):
-    doc_ref = db.collection('teams').document("Team 1")
-    await ctx.send(f"{int(arg)} teams were made")
+async def dailyMessage(ctx):
+    n = 0
+    while (n < 5):
+        await ctx.send("this message repeats every 5 seconds")
+        n += 1
+        time.sleep(5)
+
 
 
 #sets user token amount
