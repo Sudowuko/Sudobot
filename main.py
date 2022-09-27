@@ -4,6 +4,7 @@ import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
 from discord.ext import commands
+from discord.utils import get
 # from discord_components import DiscordComponents, Button, Select, SelectOption, Component
 # from discord_components import *
 
@@ -60,7 +61,7 @@ def addCount(count):
 @sudo.command()
 async def buttons(ctx):
     print("user is: ", ctx.author)
-    await ctx.send("Daily Habit Challenge\n Family August Competition\n Hello fam!!\n\n This is your daily reminder that it's time to log your habits!!\n",view=Buttons(ctx))
+    await ctx.send(f"Daily Habit Challenge\n Family August Competition\n Hello fam!!\n\n This is your daily reminder that it's time to log your habits!!\n",view=Buttons(ctx))
 
 @sudo.event
 async def on_ready():
@@ -69,14 +70,21 @@ async def on_ready():
     print("Logged in as a bot {0.user}".format(sudo))
 
 @sudo.command()
-async def ping(ctx):
-    await ctx.send('pong')
-
-@sudo.command()
 async def setTeams(ctx, arg):
     doc_ref = db.collection('teams').document("Team 1")
     await ctx.send(f"{int(arg)} teams were made")
 
+#Takes in user points based on specific reactions
+@sudo.command()
+async def react(ctx):
+    def check(reaction, user):  # Our check for the reaction
+        return user == ctx.message.author  # We check that only the authors reaction counts
+
+    await ctx.send("Please react to the message!")  # Message to react to
+
+    reaction = await sudo.wait_for("reaction_add", check=check)  # Wait for a reaction
+    print("reaction: ", reaction)
+    await ctx.send(f"You reacted with: {reaction[0]}")  # With [0] we only display the emoji
 
 #sets user token amount
 @sudo.command()
