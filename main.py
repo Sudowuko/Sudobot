@@ -69,33 +69,24 @@ async def on_ready():
     print(discord.__version__)
     print("Logged in as a bot {0.user}".format(sudo))
 
-@sudo.command()
-async def setTeams(ctx, arg):
-    doc_ref = db.collection('teams').document("Team 1")
-    await ctx.send(f"{int(arg)} teams were made")
+# @sudo.command()
+# async def setTeams(ctx, arg):
+#     doc_ref = db.collection('teams').document("Team 1")
+#     await ctx.send(f"{int(arg)} teams were made")
 
 #Takes in user points based on specific reactions
 @sudo.command()
 async def react(ctx):
-    def check(reaction, user):  # Our check for the reaction
+    count = 0
+    def check(reaction, user):  # Our check for the reaction        
         return user == ctx.message.author  # We check that only the authors reaction counts
 
     await ctx.send("Please react to the message!")  # Message to react to
 
     reaction = await sudo.wait_for("reaction_add", check=check)  # Wait for a reaction
-    print("reaction: ", reaction)
+    count += 1
+    await ctx.send(f"count increased by 1, it is currently {count} ")
     await ctx.send(f"You reacted with: {reaction[0]}")  # With [0] we only display the emoji
-
-#sets user token amount
-@sudo.command()
-async def setToken(ctx, arg):
-    doc_ref = db.collection('users').document(str(ctx.author.id))
-    doc_ref.set({
-        'tokens': int(arg),
-    })
-    tokens = doc_ref.get().get("tokens")
-
-    await ctx.send(f"{ctx.author} tokens were set to {tokens} tokens")
 
 #adds user token amount
 @sudo.command()
@@ -108,14 +99,89 @@ async def addToken(ctx, arg):
     })
     await ctx.send(f"Added {int(arg)} tokens. {ctx.author} now has {tokens} tokens")
 
+#sets user token amount
+@sudo.command()
+async def setToken(ctx, arg):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
+    doc_ref.set({
+        'tokens': int(arg),
+    })
+    tokens = doc_ref.get().get("tokens")
+
+    await ctx.send(f"{ctx.author} tokens were set to {tokens} tokens")
+
+#sets user quests count
+@sudo.command()
+async def setQuestCount(ctx, arg):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
+    doc_ref.set({
+        'quests': int(arg),
+    })
+    quests = doc_ref.get().get("quests")
+
+    await ctx.send(f"{ctx.author} quests count is set to {quests}")
+
+#sets user habit
+@sudo.command()
+async def setHabit(ctx, arg):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
+    doc_ref.set({
+        'habit': arg,
+    })
+    habit = doc_ref.get().get("habit")
+
+    await ctx.send(f"{ctx.author} habit was set to {habit}")
+
+#sets user monthly logs
+@sudo.command()
+async def setLogs(ctx, arg):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
+    doc_ref.set({
+        'mlogs': int(arg),
+    })
+    mlogs = doc_ref.get().get("mlogs")
+
+    await ctx.send(f"Logs for the month set to {mlogs}")
+
+#sets user team
+@sudo.command()
+async def setTeam(ctx, arg):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
+    doc_ref.set({
+        'team': arg,
+    })
+    team = doc_ref.get().get("team")
+
+    await ctx.send(f"Team set to {team}")
+
 #views user token amount
+# should be able to view the following
+# Tokens: 
+# Quests: 
+# Habit:
+# Monthly Logs: 
+# Team: 
 @sudo.command()
 async def viewToken(ctx, arg=None):
     user = ctx.author
     doc_ref = db.collection('users').document(str(user.id))
+    print(db.collection('users'))
+    print("doc_ref part 1: ", doc_ref.get("tokens"))
+    print("doc_ref tokens: ", doc_ref.get().get("tokens"))
     tokens = doc_ref.get().get("tokens")
+    print("tokens test")
     print("ctx is: ", ctx)
     await ctx.send(f"{user} currently has {tokens} tokens")
+    # user = ctx.author
+    # doc_ref = db.collection('users').document(str(ctx.author.id))
+    # user = doc_ref.get()
+    # tokens = doc_ref.get().get("tokens")
+    # # quests = user.get("quests")
+    # # habit = user.get("habit")
+    # # mlogs = user.get("mlogs")
+    # # team = user.get("team")
+    # await ctx.send(f"tokens: {tokens}")
+    #await ctx.send(f"User: {user} \n Habit: {habit} \n Tokens: {tokens} \n Monthly Logs: {mlogs} \n Quests: {quests} \n Team: {team}") 
 
 @sudo.command()
 async def checkUsername(ctx):
