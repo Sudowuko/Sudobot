@@ -88,6 +88,14 @@ async def react(ctx):
     await ctx.send(f"count increased by 1, it is currently {count} ")
     await ctx.send(f"You reacted with: {reaction[0]}")  # With [0] we only display the emoji
 
+@sudo.command()
+async def viewData(ctx):
+    users_ref = db.collection(u'users')
+    docs = users_ref.stream()
+
+    for doc in docs:
+        print(f'{doc.id} => {doc.to_dict()}')
+
 #adds user token amount
 @sudo.command()
 @commands.has_permissions(administrator=True)
@@ -101,87 +109,33 @@ async def addToken(ctx, arg):
 
 #sets user token amount
 @sudo.command()
-async def setToken(ctx, arg):
+@commands.has_permissions(administrator=True)
+async def setStats(ctx, arg1, arg2, arg3, arg4, arg5):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.set({
-        'tokens': int(arg),
+        'tokens': int(arg1),
+        'quests': int(arg2),
+        'mlogs': int(arg3),
+        'team': arg4,
+        'habit': arg5,
     })
     tokens = doc_ref.get().get("tokens")
-
-    await ctx.send(f"{ctx.author} tokens were set to {tokens} tokens")
-
-#sets user quests count
-@sudo.command()
-async def setQuestCount(ctx, arg):
-    doc_ref = db.collection('users').document(str(ctx.author.id))
-    doc_ref.set({
-        'quests': int(arg),
-    })
     quests = doc_ref.get().get("quests")
-
-    await ctx.send(f"{ctx.author} quests count is set to {quests}")
-
-#sets user habit
-@sudo.command()
-async def setHabit(ctx, arg):
-    doc_ref = db.collection('users').document(str(ctx.author.id))
-    doc_ref.set({
-        'habit': arg,
-    })
-    habit = doc_ref.get().get("habit")
-
-    await ctx.send(f"{ctx.author} habit was set to {habit}")
-
-#sets user monthly logs
-@sudo.command()
-async def setLogs(ctx, arg):
-    doc_ref = db.collection('users').document(str(ctx.author.id))
-    doc_ref.set({
-        'mlogs': int(arg),
-    })
     mlogs = doc_ref.get().get("mlogs")
-
-    await ctx.send(f"Logs for the month set to {mlogs}")
-
-#sets user team
-@sudo.command()
-async def setTeam(ctx, arg):
-    doc_ref = db.collection('users').document(str(ctx.author.id))
-    doc_ref.set({
-        'team': arg,
-    })
     team = doc_ref.get().get("team")
+    habit = doc_ref.get().get("habit")
+    await ctx.send(f"**Setting Stats for {ctx.author}** \n ```Tokens: {tokens} \nQuests {quests} \nMonthly Logs: {mlogs} \nTeam: {team} \nHabit: {habit}``` ")
 
-    await ctx.send(f"Team set to {team}")
-
-#views user token amount
-# should be able to view the following
-# Tokens: 
-# Quests: 
-# Habit:
-# Monthly Logs: 
-# Team: 
 @sudo.command()
-async def viewToken(ctx, arg=None):
+async def viewStats(ctx, arg=None):
     user = ctx.author
     doc_ref = db.collection('users').document(str(user.id))
-    print(db.collection('users'))
-    print("doc_ref part 1: ", doc_ref.get("tokens"))
-    print("doc_ref tokens: ", doc_ref.get().get("tokens"))
     tokens = doc_ref.get().get("tokens")
-    print("tokens test")
-    print("ctx is: ", ctx)
-    await ctx.send(f"{user} currently has {tokens} tokens")
-    # user = ctx.author
-    # doc_ref = db.collection('users').document(str(ctx.author.id))
-    # user = doc_ref.get()
-    # tokens = doc_ref.get().get("tokens")
-    # # quests = user.get("quests")
-    # # habit = user.get("habit")
-    # # mlogs = user.get("mlogs")
-    # # team = user.get("team")
-    # await ctx.send(f"tokens: {tokens}")
-    #await ctx.send(f"User: {user} \n Habit: {habit} \n Tokens: {tokens} \n Monthly Logs: {mlogs} \n Quests: {quests} \n Team: {team}") 
+    quests = doc_ref.get().get("quests")
+    mlogs = doc_ref.get().get("mlogs")
+    team = doc_ref.get().get("team")
+    habit = doc_ref.get().get("habit")
+    await ctx.send(f"**Personal Stats for {ctx.author}** \n ```Tokens: {tokens} \nQuests {quests} \nMonthly Logs: {mlogs} \nTeam: {team} \nHabit: {habit}``` ")
 
 @sudo.command()
 async def checkUsername(ctx):
