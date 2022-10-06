@@ -112,13 +112,62 @@ async def addToken(ctx, arg):
 @commands.has_permissions(administrator=True)
 async def addQuests(ctx, arg):
     doc_ref = db.collection('users').document(str(ctx.author.id))
-    tokens = doc_ref.get().get("tokens") + int(arg)
+    user = doc_ref.get()
+    quests = user.get("quests") + int(arg)
     doc_ref.set({
-        'tokens': tokens,
+        'tokens': user.get("tokens"),
+        'quests': quests,
+        'mlogs': user.get("mlogs"),
+        'team': user.get("team"),
+        'habit': user.get("habit")
     })
-    await ctx.send(f"Added {int(arg)} tokens. {ctx.author} now has {tokens} tokens")
+    await ctx.send(f"Added {int(arg)} completed quests. {ctx.author} now has {quests} quests completed")
 
+#adds monthly logs
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def addLogs(ctx, arg):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
+    user = doc_ref.get()
+    mlogs = user.get("mlogs") + int(arg)
+    doc_ref.set({
+        'tokens': user.get("tokens"),
+        'quests': user.get("quests"),
+        'mlogs': mlogs,
+        'team': user.get("team"),
+        'habit': user.get("habit")
+    })
+    await ctx.send(f"Added {int(arg)} monthly logs. {ctx.author} now has {mlogs} logs completed")
 
+#change team 
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def changeTeam(ctx, arg):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
+    user = doc_ref.get()
+    doc_ref.set({
+        'tokens': user.get("tokens"),
+        'quests': user.get("quests"),
+        'mlogs': user.get("mlogs"),
+        'team': arg,
+        'habit': user.get("habit")
+    })
+    await ctx.send(f"{ctx.author} team is now {arg}")
+
+#change habit
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def changeHabit(ctx, arg):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
+    user = doc_ref.get()
+    doc_ref.set({
+        'tokens': user.get("tokens"),
+        'quests': user.get("quests"),
+        'mlogs': user.get("mlogs"),
+        'team': user.get("team"),
+        'habit': arg
+    })
+    await ctx.send(f"{ctx.author}'s habit is now {arg}")
 
 #sets user stats for tokens, quests, monthly logs, team, and habit
 @sudo.command()
