@@ -69,11 +69,6 @@ async def on_ready():
     print(discord.__version__)
     print("Logged in as a bot {0.user}".format(sudo))
 
-# @sudo.command()
-# async def setTeams(ctx, arg):
-#     doc_ref = db.collection('teams').document("Team 1")
-#     await ctx.send(f"{int(arg)} teams were made")
-
 #Takes in user points based on specific reactions
 @sudo.command()
 async def react(ctx):
@@ -101,13 +96,31 @@ async def viewData(ctx):
 @commands.has_permissions(administrator=True)
 async def addToken(ctx, arg):
     doc_ref = db.collection('users').document(str(ctx.author.id))
+    user = doc_ref.get()
+    tokens = user.get("tokens") + int(arg)
+    doc_ref.set({
+        'tokens': tokens,
+        'quests': user.get("quests"),
+        'mlogs': user.get("mlogs"),
+        'team': user.get("team"),
+        'habit': user.get("habit")
+    })
+    await ctx.send(f"Added {int(arg)} tokens. {ctx.author} now has {tokens} tokens")
+
+#adds the total quest count
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def addQuests(ctx, arg):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
     tokens = doc_ref.get().get("tokens") + int(arg)
     doc_ref.set({
         'tokens': tokens,
     })
     await ctx.send(f"Added {int(arg)} tokens. {ctx.author} now has {tokens} tokens")
 
-#sets user token amount
+
+
+#sets user stats for tokens, quests, monthly logs, team, and habit
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def setStats(ctx, arg1, arg2, arg3, arg4, arg5):
