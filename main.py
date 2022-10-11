@@ -5,9 +5,6 @@ from firebase_admin import credentials
 from firebase_admin import firestore
 from discord.ext import commands
 from discord.utils import get
-# from discord_components import DiscordComponents, Button, Select, SelectOption, Component
-# from discord_components import *
-
 import logging
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
