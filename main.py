@@ -52,9 +52,17 @@ async def react(ctx):
     await ctx.send(f"You reacted with: {reaction[0]}")  # With [0] we only display the emoji
 
 @sudo.command()
-async def viewData(ctx):
+async def viewUserData(ctx):
     users_ref = db.collection(u'users')
     docs = users_ref.stream()
+
+    for doc in docs:
+        await ctx.send(f'{doc.id} => {doc.to_dict()}')
+
+@sudo.command()
+async def viewTokenData(ctx):
+    tokens_ref = db.collection(u'tokens')
+    docs = tokens_ref.stream()
 
     for doc in docs:
         await ctx.send(f'{doc.id} => {doc.to_dict()}')
@@ -110,7 +118,7 @@ async def addLogs(ctx, monthly_log_count):
 #change team 
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def changeTeam(ctx, team_name):
+async def changeTeam(ctx, *, team_name):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     user = doc_ref.get()
     doc_ref.set({
@@ -125,7 +133,7 @@ async def changeTeam(ctx, team_name):
 #change habit
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def changeHabit(ctx, habit_name):
+async def changeHabit(ctx, *, habit_name):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     user = doc_ref.get()
     doc_ref.set({
@@ -140,7 +148,7 @@ async def changeHabit(ctx, habit_name):
 #sets user stats for tokens, quests, monthly logs, team, and habit
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def setStats(ctx, token_count, quest_count, monthly_log_count, team_name, habit_name):
+async def setUserStats(ctx, token_count, quest_count, monthly_log_count, team_name, habit_name):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.set({
         'tokens': int(token_count),
@@ -149,15 +157,11 @@ async def setStats(ctx, token_count, quest_count, monthly_log_count, team_name, 
         'team': team_name,
         'habit': habit_name,
     })
-    tokens = doc_ref.get().get("tokens")
-    quests = doc_ref.get().get("quests")
-    monthly_logs = doc_ref.get().get("monthly_logs")
-    team = doc_ref.get().get("team")
-    habit = doc_ref.get().get("habit")
-    await ctx.send(f"**Setting Stats for {ctx.author}** \n ```Tokens: {tokens} \nQuests {quests} \nMonthly Logs: {monthly_logs} \nTeam: {team} \nHabit: {habit}``` ")
+    await ctx.send(f"User stats for {ctx.author} has been set")
 
+#allows user to view their own personal stats
 @sudo.command()
-async def viewStats(ctx, arg=None):
+async def viewUserStats(ctx, arg=None):
     user = ctx.author
     doc_ref = db.collection('users').document(str(user.id))
     tokens = doc_ref.get().get("tokens")
@@ -167,6 +171,35 @@ async def viewStats(ctx, arg=None):
     habit = doc_ref.get().get("habit")
     await ctx.send(f"**Personal Stats for {ctx.author}** \n ```Tokens: {tokens} \nQuests {quests} \nMonthly Logs: {monthly_logs} \nTeam: {team} \nHabit: {habit}``` ")
 
+#sets user database regarding all the token details
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def setTokenDetails(ctx, token_count, quest_count, streak_count, mvp_count, win_count, purchase_count):
+    doc_ref = db.collection('tokens').document(str(ctx.author.id))
+    doc_ref.set({
+        'user': ctx.author,
+        'tokens': int(token_count),
+        'quests': int(quest_count),
+        'streaks': int(streak_count),
+        'mvp': int(mvp_count),
+        'wins': int(win_count),
+        'purchases': int(purchase_count)
+    })
+    await ctx.send(f"**{ctx.author}'s token details have been set**")
+
+#allows user to view their own personal stats
+@sudo.command()
+async def viewTokenDetails(ctx, arg=None):
+    doc_ref = db.collection('tokens').document(str(ctx.author.id))
+    user = doc_ref.get().get("user")
+    tokens = doc_ref.get().get("tokens")
+    quests = doc_ref.get().get("quests")
+    streaks = doc_ref.get().get("streaks")
+    mvp = doc_ref.get().get("mvp")
+    wins = doc_ref.get().get("wins")
+    purchases = doc_ref.get().get("purchases")
+    await ctx.send(f"**Setting Stats for {user}** \n ```Tokens: {tokens} \nQuests {quests} \nStreaks: {streaks} \nMVP: {mvp} \nWins:  {wins} \nPurchases: {purchases}``` ")
+
 @sudo.command()
 async def checkUsername(ctx):
     doc_ref = db.collection('users').document(str(ctx.author.id))
@@ -175,12 +208,11 @@ async def checkUsername(ctx):
     await ctx.send(f"Username is {username}")
 
 @sudo.command()
-async def listusers(ctx):
+async def listUsers(ctx):
     users = ctx.guild.members
     await ctx.send(f"{[str(i) for i in users]}")
 
-
-def user_search(guild, userkey):
+def userSearch(guild, userkey):
     """user_search searches for a user in a guild by username#discriminator, username, or user_id"""
     users = guild.members
     results = []
@@ -199,7 +231,7 @@ def user_search(guild, userkey):
 #mass updates user tokens by taking in an import list 
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def importtokens(ctx):
+async def importTokens(ctx):
     message = ctx.message.content
     errors = []
     message_list = message.split("\n")[1:]
@@ -213,7 +245,7 @@ async def importtokens(ctx):
             tokens = int(columns[1])
         except ValueError:
             errors.append(f"{username} is ambiguous on row {i+1}")
-        usermatch = user_search(ctx.guild, username)
+        usermatch = userSearch(ctx.guild, username)
         if len(usermatch) > 1:
             errors.append(f"{username} is ambiguous on row {i+1}")
             continue
@@ -235,7 +267,7 @@ async def importtokens(ctx):
 # Creates a list of all the users with their token value
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def listtokens(ctx):
+async def listTokens(ctx):
     members = ctx.guild.members
     tokens_table = [("Name", "Tokens")]
     for i in members:
