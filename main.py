@@ -58,9 +58,11 @@ async def viewUserData(ctx):
 
 @sudo.command()
 async def viewTokenData(ctx):
-    tokens_ref = db.collection(u'tokens')
+    tokens_ref = db.collection(u'rewards')
     docs = tokens_ref.stream()
-
+    if tokens_ref:
+        await ctx.send(docs)
+        await ctx.send("database not accessed")
     for doc in docs:
         await ctx.send(f'{doc.id} => {doc.to_dict()}')
 
@@ -69,47 +71,17 @@ async def viewTokenData(ctx):
 @commands.has_permissions(administrator=True)
 async def addToken(ctx, token_count):
     doc_ref = db.collection('users').document(str(ctx.author.id))
-    user = doc_ref.get()
-    tokens = user.get("tokens") + int(token_count)
-    doc_ref.set({
-        'tokens': tokens,
-        'quests': user.get("quests"),
-        'monthly_logs': user.get("monthly_logs"),
-        'team': user.get("team"),
-        'habit': user.get("habit")
-    })
+    tokens = doc_ref.get().get("tokens") + int(token_count)
+    doc_ref.update({"tokens": firestore.Increment(int(token_count))})
     await ctx.send(f"Added {int(token_count)} tokens. {ctx.author} now has {tokens} tokens")
-
-#adds the total quest count
-@sudo.command()
-@commands.has_permissions(administrator=True)
-async def addQuests(ctx, quest_count):
-    doc_ref = db.collection('users').document(str(ctx.author.id))
-    user = doc_ref.get()
-    quests = user.get("quests") + int(quest_count)
-    doc_ref.set({
-        'tokens': user.get("tokens"),
-        'quests': quests,
-        'monthly_logs': user.get("monthly_logs"),
-        'team': user.get("team"),
-        'habit': user.get("habit")
-    })
-    await ctx.send(f"Added {int(quest_count)} completed quests. {ctx.author} now has {quests} quests completed")
 
 #adds monthly logs
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def addLogs(ctx, monthly_log_count):
     doc_ref = db.collection('users').document(str(ctx.author.id))
-    user = doc_ref.get()
-    monthly_logs = user.get("monthly_logs") + int(monthly_log_count)
-    doc_ref.set({
-        'tokens': user.get("tokens"),
-        'quests': user.get("quests"),
-        'monthly_logs': monthly_logs,
-        'team': user.get("team"),
-        'habit': user.get("habit")
-    })
+    monthly_logs = doc_ref.get().get("monthly_logs") + int(monthly_log_count)
+    doc_ref.update({"monthly_logs": firestore.Increment(int(monthly_log_count))})
     await ctx.send(f"Added {int(monthly_log_count)} monthly logs. {ctx.author} now has {monthly_logs} logs completed")
 
 #change team 
@@ -117,14 +89,7 @@ async def addLogs(ctx, monthly_log_count):
 @commands.has_permissions(administrator=True)
 async def changeTeam(ctx, *, team_name):
     doc_ref = db.collection('users').document(str(ctx.author.id))
-    user = doc_ref.get()
-    doc_ref.set({
-        'tokens': user.get("tokens"),
-        'quests': user.get("quests"),
-        'monthly_logs': user.get("monthly_logs"),
-        'team': team_name,
-        'habit': user.get("habit")
-    })
+    doc_ref.update({"team": team_name})
     await ctx.send(f"{ctx.author} team is now {team_name}")
 
 #change habit
@@ -132,24 +97,16 @@ async def changeTeam(ctx, *, team_name):
 @commands.has_permissions(administrator=True)
 async def changeHabit(ctx, *, habit_name):
     doc_ref = db.collection('users').document(str(ctx.author.id))
-    user = doc_ref.get()
-    doc_ref.set({
-        'tokens': user.get("tokens"),
-        'quests': user.get("quests"),
-        'monthly_logs': user.get("monthly_logs"),
-        'team': user.get("team"),
-        'habit': habit_name
-    })
+    doc_ref.update({"habit": habit_name})
     await ctx.send(f"{ctx.author}'s habit is now {habit_name}")
 
 #sets user stats for tokens, quests, monthly logs, team, and habit
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def setUserStats(ctx, token_count, quest_count, monthly_log_count, team_name, habit_name):
+async def setUserStats(ctx, token_count, monthly_log_count, team_name, habit_name):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.set({
         'tokens': int(token_count),
-        'quests': int(quest_count),
         'monthly_logs': int(monthly_log_count),
         'team': team_name,
         'habit': habit_name,
@@ -162,17 +119,73 @@ async def viewUserStats(ctx, arg=None):
     user = ctx.author
     doc_ref = db.collection('users').document(str(user.id))
     tokens = doc_ref.get().get("tokens")
-    quests = doc_ref.get().get("quests")
     monthly_logs = doc_ref.get().get("monthly_logs")
     team = doc_ref.get().get("team")
     habit = doc_ref.get().get("habit")
-    await ctx.send(f"**Personal Stats for {ctx.author}** \n ```Tokens: {tokens} \nQuests {quests} \nMonthly Logs: {monthly_logs} \nTeam: {team} \nHabit: {habit}``` ")
+    await ctx.send(f"**Personal Stats for {ctx.author}** \n ```Tokens: {tokens} \nMonthly Logs: {monthly_logs} \nTeam: {team} \nHabit: {habit}``` ")
+
+#add commands for tokens database
+
+#adds the total quest count
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def addQuests(ctx, quest_count):
+    doc_ref = db.collection('rewards').document(str(ctx.author.id))
+    doc_ref.update({"tokens": firestore.Increment(int(quest_count) * 10)})
+    doc_ref.update({"quests": firestore.Increment(int(quest_count))})
+    tokens = doc_ref.get().get("tokens")
+    quests = doc_ref.get().get("quests")
+    await ctx.send(f"Added {int(quest_count)} quests and now {ctx.author} has {quests} quests completed in total. {ctx.author} has also gained {int(quest_count) * 10} tokens and now has a total of {tokens} tokens.")
+
+#adds the total streak count
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def addStreaks(ctx, streak_count):
+    doc_ref = db.collection('rewards').document(str(ctx.author.id))
+    doc_ref.update({"tokens": firestore.Increment(int(streak_count) * 30)})
+    doc_ref.update({"quests": firestore.Increment(int(streak_count))})
+    tokens = doc_ref.get().get("tokens")
+    streaks = doc_ref.get().get("streaks")
+    await ctx.send(f"Added {int(streak_count)} streaks and now {ctx.author} has {streaks} streaks completed in total. {ctx.author} has also gained {int(streak_count) * 30} tokens and now has a total of {tokens} tokens.")
+
+#adds the total MVP count
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def addMVP(ctx, mvp_count):
+    doc_ref = db.collection('rewards').document(str(ctx.author.id))
+    doc_ref.update({"tokens": firestore.Increment(int(mvp_count) * 100)})
+    doc_ref.update({"mvp": firestore.Increment(int(mvp_count))})
+    tokens = doc_ref.get().get("tokens")
+    mvp = doc_ref.get().get("mvp")
+    await ctx.send(f"Added {int(mvp_count)} MVPs and now {ctx.author} has {mvp} MVPs earned in total. {ctx.author} has also gained {int(mvp) * 100} tokens and now has a total of {tokens} tokens.")
+
+#adds the total win count
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def addWins(ctx, win_count):
+    doc_ref = db.collection('rewards').document(str(ctx.author.id))
+    doc_ref.update({"tokens": firestore.Increment(int(win_count) * 700)})
+    doc_ref.update({"wins": firestore.Increment(int(win_count))})
+    tokens = doc_ref.get().get("tokens")
+    wins = doc_ref.get().get("wins")
+    await ctx.send(f"Added {int(win_count)} wins and now {ctx.author} has {wins} wins earned in total. {ctx.author} has also gained {int(wins) * 700} tokens and now has a total of {tokens} tokens.")
+
+#adds to pruchase amount
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def addPurchases(ctx, purchase_count):
+    doc_ref = db.collection('rewards').document(str(ctx.author.id))
+    doc_ref.update({"tokens": firestore.Increment(int(purchase_count) * -1)})
+    doc_ref.update({"pruchases": firestore.Increment(int(purchase_count))})
+    tokens = doc_ref.get().get("tokens")
+    purchases = doc_ref.get().get("purchases")
+    await ctx.send(f"Spent {int(purchase_count)} tokens on purchases with a total spending of {purchases}. {ctx.author} now has {tokens} remaining.")
 
 #sets user database regarding all the token details
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def setTokenDetails(ctx, token_count, quest_count, streak_count, mvp_count, win_count, purchase_count):
-    doc_ref = db.collection('tokens').document(str(ctx.author.id))
+    doc_ref = db.collection('rewards').document(str(ctx.author.id))
     doc_ref.set({
         'user': ctx.author,
         'tokens': int(token_count),
@@ -184,10 +197,10 @@ async def setTokenDetails(ctx, token_count, quest_count, streak_count, mvp_count
     })
     await ctx.send(f"**{ctx.author}'s token details have been set**")
 
-#allows user to view their own personal stats
+#allows user to view their own personal stats regarding token details
 @sudo.command()
 async def viewTokenDetails(ctx, arg=None):
-    doc_ref = db.collection('tokens').document(str(ctx.author.id))
+    doc_ref = db.collection('rewards').document(str(ctx.author.id))
     user = doc_ref.get().get("user")
     tokens = doc_ref.get().get("tokens")
     quests = doc_ref.get().get("quests")
