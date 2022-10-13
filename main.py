@@ -241,20 +241,26 @@ def userSearch(guild, userkey):
 #mass updates user tokens by taking in an import list 
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def importTokens(ctx):
+async def importUserData(ctx):
     message = ctx.message.content
     errors = []
     message_list = message.split("\n")[1:]
     users = {}
     for i, row in enumerate(message_list):
-        columns = row.rsplit(maxsplit=1)
-        if len(columns) != 2:
-            errors.append(f"could not parse row {i+1}, must have 1 username and 1 token value per row")
+        columns = row.rsplit(maxsplit=4)
+        if len(columns) != 5:
+            errors.append(f"could not parse row {i+1}, must have a value for username, token, monthly logs, team name, and habit name")
         username = columns[0]
         try:
-            tokens = int(columns[1])
+            userinfo = {
+                "username": str(username),
+                "tokens": int(columns[1]),
+                "monthly_logs": int(columns[2]),
+                "team":  str(columns[3]),
+                "habit": str(columns[4]),
+                }
         except ValueError:
-            errors.append(f"{username} is ambiguous on row {i+1}")
+            errors.append(f"ValueError {username} is ambiguous on row {i+1}")
         usermatch = userSearch(ctx.guild, username)
         if len(usermatch) > 1:
             errors.append(f"{username} is ambiguous on row {i+1}")
@@ -264,20 +270,20 @@ async def importTokens(ctx):
             continue
         else:
             user = usermatch[0]
-            users[str(user.id)] = tokens
+            users[str(user.id)] = userinfo
     if len(errors) > 0:
         await ctx.send(f"Error(s) parsing import command: {errors}")
     batch = db.batch()
     for i, v in users.items():
         doc_ref = db.collection('users').document(i)
-        batch.set(doc_ref, {"tokens": v}, merge=True)
+        batch.set(doc_ref, v, merge=True)
     batch.commit()
-    await ctx.send("Updated user tokens")
+    await ctx.send("Updated user values")
 
 # Creates a list of all the users with their token value
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def listTokens(ctx):
+async def listUserData(ctx):
     members = ctx.guild.members
     tokens_table = [("Name", "Tokens")]
     for i in members:
