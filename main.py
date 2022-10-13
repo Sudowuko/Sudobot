@@ -186,7 +186,7 @@ async def addPurchases(ctx, purchase_count):
 @commands.has_permissions(administrator=True)
 async def setTokenDetails(ctx, token_count, quest_count, streak_count, mvp_count, win_count, purchase_count):
     doc_ref = db.collection('rewards').document(str(ctx.author.id))
-    doc_ref.set({
+    await db.collection('rewards').document(str(ctx.author).set({
         'user': ctx.author,
         'tokens': int(token_count),
         'quests': int(quest_count),
@@ -194,7 +194,8 @@ async def setTokenDetails(ctx, token_count, quest_count, streak_count, mvp_count
         'mvp': int(mvp_count),
         'wins': int(win_count),
         'purchases': int(purchase_count)
-    })
+    }))
+
     await ctx.send(f"**{ctx.author}'s token details have been set**")
 
 #allows user to view their own personal stats regarding token details
@@ -208,7 +209,7 @@ async def viewTokenDetails(ctx, arg=None):
     mvp = doc_ref.get().get("mvp")
     wins = doc_ref.get().get("wins")
     purchases = doc_ref.get().get("purchases")
-    await ctx.send(f"**Setting Stats for {user}** \n ```Tokens: {tokens} \nQuests {quests} \nStreaks: {streaks} \nMVP: {mvp} \nWins:  {wins} \nPurchases: {purchases}``` ")
+    await ctx.send(f"**Rewards Details for {ctx.author}** \n ```Tokens: {tokens} \nQuests {quests} \nStreaks: {streaks} \nMVP: {mvp} \nWins:  {wins} \nPurchases: {purchases}``` ")
 
 @sudo.command()
 async def checkUsername(ctx):
@@ -239,12 +240,14 @@ def userSearch(guild, userkey):
     return results
 
 #mass updates user tokens by taking in an import list 
+#TODO: Team and habit columns can only take in one word, potential solution is converting this function to import a CSV
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def importUserData(ctx):
     message = ctx.message.content
     errors = []
     message_list = message.split("\n")[1:]
+    print(f"message_list is {message_list}")
     users = {}
     for i, row in enumerate(message_list):
         columns = row.rsplit(maxsplit=4)
@@ -285,7 +288,7 @@ async def importUserData(ctx):
 @commands.has_permissions(administrator=True)
 async def listUserData(ctx):
     members = ctx.guild.members
-    tokens_table = [("Name", "Tokens")]
+    user_table = [("Name", "Tokens", "Logs", "Team", "Habit")]
     for i in members:
         if i.bot:
             continue
@@ -293,11 +296,14 @@ async def listUserData(ctx):
         user = doc_ref.get()
         if user.exists:
             token = user.get('tokens')
+            monthly_logs = user.get("monthly_logs")
+            team = user.get('team')
+            habit = user.get('habit')
         else:
             token = 0
-        tokens_table.append((str(i), token))
-    tokens_table[1:] = sorted(tokens_table[1:], key=lambda x: x[1], reverse=True)
-    message = [f"{name:<30}{tokens:<10}" for name, tokens in tokens_table]
+        user_table.append((str(i), token, monthly_logs, team, habit))
+    user_table[1:] = sorted(user_table[1:], key=lambda x: x[1], reverse=True)
+    message = [f"{name:<30}{tokens:<10}{monthly_logs:<10}{team:<15}{habit:<15}" for name, tokens, monthly_logs, team, habit in user_table]
     await ctx.send("```" + "\n".join(message) + "```")
 
 sudo.run(token, log_handler=handler)
