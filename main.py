@@ -56,16 +56,6 @@ async def viewUserData(ctx):
     for doc in docs:
         await ctx.send(f'{doc.id} => {doc.to_dict()}')
 
-@sudo.command()
-async def viewTokenData(ctx):
-    tokens_ref = db.collection(u'rewards')
-    docs = tokens_ref.stream()
-    if tokens_ref:
-        await ctx.send(docs)
-        await ctx.send("database not accessed")
-    for doc in docs:
-        await ctx.send(f'{doc.id} => {doc.to_dict()}')
-
 #adds user token amount
 @sudo.command()
 @commands.has_permissions(administrator=True)
@@ -103,19 +93,25 @@ async def changeHabit(ctx, *, habit_name):
 #sets user stats for tokens, quests, monthly logs, team, and habit
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def setUserStats(ctx, token_count, monthly_log_count, team_name, habit_name):
+async def setUserStats(ctx, token_count, monthly_log_count, team_name, habit_name, quest_count, streak_count, mvp_count, win_count, purchase_count):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.set({
         'tokens': int(token_count),
         'monthly_logs': int(monthly_log_count),
         'team': team_name,
         'habit': habit_name,
+        'quests': int(quest_count),
+        'streaks': int(streak_count),
+        'mvp': int(mvp_count),
+        'wins': int(win_count),
+        'purchases': int(purchase_count)
+
     })
     await ctx.send(f"User stats for {ctx.author} has been set")
 
 #allows user to view their own personal stats
 @sudo.command()
-async def viewUserStats(ctx, arg=None):
+async def viewStats(ctx, arg=None):
     user = ctx.author
     doc_ref = db.collection('users').document(str(user.id))
     tokens = doc_ref.get().get("tokens")
@@ -124,13 +120,26 @@ async def viewUserStats(ctx, arg=None):
     habit = doc_ref.get().get("habit")
     await ctx.send(f"**Personal Stats for {ctx.author}** \n ```Tokens: {tokens} \nMonthly Logs: {monthly_logs} \nTeam: {team} \nHabit: {habit}``` ")
 
+#allows user to take a deeper look into how their tokens are calculated
+@sudo.command()
+async def viewCalculations(ctx, arg=None):
+    doc_ref = db.collection('users').document(str(ctx.author.id))
+    tokens = doc_ref.get().get("tokens")
+    quests = doc_ref.get().get("quests")
+    streaks = doc_ref.get().get("streaks")
+    mvp = doc_ref.get().get("mvp")
+    wins = doc_ref.get().get("wins")
+    purchases = doc_ref.get().get("purchases")
+    await ctx.send(f"**Token Calculations for {ctx.author}** \n ```Tokens: {tokens} \nQuests {quests} \nStreaks: {streaks} \nMVP: {mvp} \nWins:  {wins} \nPurchases: {purchases}``` ")
+
+
 #add commands for tokens database
 
 #adds the total quest count
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def addQuests(ctx, quest_count):
-    doc_ref = db.collection('rewards').document(str(ctx.author.id))
+    doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.update({"tokens": firestore.Increment(int(quest_count) * 10)})
     doc_ref.update({"quests": firestore.Increment(int(quest_count))})
     tokens = doc_ref.get().get("tokens")
@@ -141,7 +150,7 @@ async def addQuests(ctx, quest_count):
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def addStreaks(ctx, streak_count):
-    doc_ref = db.collection('rewards').document(str(ctx.author.id))
+    doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.update({"tokens": firestore.Increment(int(streak_count) * 30)})
     doc_ref.update({"quests": firestore.Increment(int(streak_count))})
     tokens = doc_ref.get().get("tokens")
@@ -152,7 +161,7 @@ async def addStreaks(ctx, streak_count):
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def addMVP(ctx, mvp_count):
-    doc_ref = db.collection('rewards').document(str(ctx.author.id))
+    doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.update({"tokens": firestore.Increment(int(mvp_count) * 100)})
     doc_ref.update({"mvp": firestore.Increment(int(mvp_count))})
     tokens = doc_ref.get().get("tokens")
@@ -163,59 +172,29 @@ async def addMVP(ctx, mvp_count):
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def addWins(ctx, win_count):
-    doc_ref = db.collection('rewards').document(str(ctx.author.id))
+    doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.update({"tokens": firestore.Increment(int(win_count) * 700)})
     doc_ref.update({"wins": firestore.Increment(int(win_count))})
     tokens = doc_ref.get().get("tokens")
     wins = doc_ref.get().get("wins")
-    await ctx.send(f"Added {int(win_count)} wins and now {ctx.author} has {wins} wins earned in total. {ctx.author} has also gained {int(wins) * 700} tokens and now has a total of {tokens} tokens.")
+    await ctx.send(f"Added {int(win_count)} wins and now {ctx.author} has {wins} wins earned in total. {ctx.author} has also gained {int(win_count) * 700} tokens and now has a total of {tokens} tokens.")
 
 #adds to pruchase amount
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def addPurchases(ctx, purchase_count):
-    doc_ref = db.collection('rewards').document(str(ctx.author.id))
+    doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.update({"tokens": firestore.Increment(int(purchase_count) * -1)})
-    doc_ref.update({"pruchases": firestore.Increment(int(purchase_count))})
+    doc_ref.update({"purchases": firestore.Increment(int(purchase_count))})
     tokens = doc_ref.get().get("tokens")
     purchases = doc_ref.get().get("purchases")
     await ctx.send(f"Spent {int(purchase_count)} tokens on purchases with a total spending of {purchases}. {ctx.author} now has {tokens} remaining.")
 
-#sets user database regarding all the token details
-@sudo.command()
-@commands.has_permissions(administrator=True)
-async def setTokenDetails(ctx, token_count, quest_count, streak_count, mvp_count, win_count, purchase_count):
-    doc_ref = db.collection('rewards').document(str(ctx.author.id))
-    await db.collection('rewards').document(str(ctx.author).set({
-        'user': ctx.author,
-        'tokens': int(token_count),
-        'quests': int(quest_count),
-        'streaks': int(streak_count),
-        'mvp': int(mvp_count),
-        'wins': int(win_count),
-        'purchases': int(purchase_count)
-    }))
-
-    await ctx.send(f"**{ctx.author}'s token details have been set**")
-
-#allows user to view their own personal stats regarding token details
-@sudo.command()
-async def viewTokenDetails(ctx, arg=None):
-    doc_ref = db.collection('rewards').document(str(ctx.author.id))
-    user = doc_ref.get().get("user")
-    tokens = doc_ref.get().get("tokens")
-    quests = doc_ref.get().get("quests")
-    streaks = doc_ref.get().get("streaks")
-    mvp = doc_ref.get().get("mvp")
-    wins = doc_ref.get().get("wins")
-    purchases = doc_ref.get().get("purchases")
-    await ctx.send(f"**Rewards Details for {ctx.author}** \n ```Tokens: {tokens} \nQuests {quests} \nStreaks: {streaks} \nMVP: {mvp} \nWins:  {wins} \nPurchases: {purchases}``` ")
 
 @sudo.command()
 async def checkUsername(ctx):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     username = doc_ref.get().get("username")
-    print("ctx is: ", ctx)
     await ctx.send(f"Username is {username}")
 
 @sudo.command()
@@ -247,11 +226,10 @@ async def importUserData(ctx):
     message = ctx.message.content
     errors = []
     message_list = message.split("\n")[1:]
-    print(f"message_list is {message_list}")
     users = {}
     for i, row in enumerate(message_list):
-        columns = row.rsplit(maxsplit=4)
-        if len(columns) != 5:
+        columns = row.rsplit(maxsplit=9)
+        if len(columns) != 10:
             errors.append(f"could not parse row {i+1}, must have a value for username, token, monthly logs, team name, and habit name")
         username = columns[0]
         try:
@@ -261,6 +239,11 @@ async def importUserData(ctx):
                 "monthly_logs": int(columns[2]),
                 "team":  str(columns[3]),
                 "habit": str(columns[4]),
+                'quests': int(columns[5]),
+                'streaks': int(columns[6]),
+                'mvp': int(columns[7]),
+                'wins': int(columns[8]),
+                'purchases': int(columns[9])
                 }
         except ValueError:
             errors.append(f"ValueError {username} is ambiguous on row {i+1}")
@@ -283,12 +266,12 @@ async def importUserData(ctx):
     batch.commit()
     await ctx.send("Updated user values")
 
-# Creates a list of all the users with their token value
+# Creates a list of all the users with their token details
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def listUserData(ctx):
+async def listAllTokenDetails(ctx):
     members = ctx.guild.members
-    user_table = [("Name", "Tokens", "Logs", "Team", "Habit")]
+    user_table = [("Name", "Tokens", "Quests", "Streaks", "MVPs", "Wins")]
     for i in members:
         if i.bot:
             continue
@@ -296,14 +279,36 @@ async def listUserData(ctx):
         user = doc_ref.get()
         if user.exists:
             token = user.get('tokens')
-            monthly_logs = user.get("monthly_logs")
+            quests = user.get("quests")
+            streaks = user.get('streaks')
+            mvp = user.get("mvp")
+            wins = user.get("wins")
+        else:
+            token = 0
+        user_table.append((str(i), token, quests, streaks, mvp, wins))
+    user_table[1:] = sorted(user_table[1:], key=lambda x: x[1], reverse=True)
+    message = [f"{name:<30}{tokens:<10}{quests:<10}{streaks:<10}{mvp:<10}{wins:<10}" for name, tokens, quests, streaks, mvp, wins in user_table]
+    await ctx.send("```" + "\n".join(message) + "```")
+
+# Creates a list of all the users with their token details
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def listAllTeamDetails(ctx):
+    members = ctx.guild.members
+    user_table = [("Name", "Team", "Habit")]
+    for i in members:
+        if i.bot:
+            continue
+        doc_ref = db.collection('users').document(str(i.id))
+        user = doc_ref.get()
+        if user.exists:
             team = user.get('team')
             habit = user.get('habit')
         else:
             token = 0
-        user_table.append((str(i), token, monthly_logs, team, habit))
+        user_table.append((str(i), team, habit))
     user_table[1:] = sorted(user_table[1:], key=lambda x: x[1], reverse=True)
-    message = [f"{name:<30}{tokens:<10}{monthly_logs:<10}{team:<15}{habit:<15}" for name, tokens, monthly_logs, team, habit in user_table]
+    message = [f"{name:<30}{team:<20}{habit:<30}" for name, team, habit in user_table]
     await ctx.send("```" + "\n".join(message) + "```")
 
 sudo.run(token, log_handler=handler)
