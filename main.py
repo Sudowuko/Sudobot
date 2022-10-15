@@ -30,23 +30,30 @@ sudo = commands.Bot(intents=intents, command_prefix='!')
 
 @sudo.event
 async def on_ready():
-    print("checking print statement!")
-    print(discord.__version__)
     print("Logged in as a bot {0.user}".format(sudo))
 
 #Takes in user points based on specific reactions
+# TODO: Add score for multiple reactions (I.e. this currently stops after one reaction)
+# Afterwards add a feature that only allows users to get max one point per message 
+# Create team database which is better for data management
+# Team Database 
+#   Team A: Obj -> {Name (Str), Emote (Str), Points (Int), Members (List)}
+#   Team B: Obj -> {Name (Str), Emote (Str), Points (Int), Members (List)}
+#   Team C: Obj -> {Name (Str), Emote (Str), Points (Int), Members (List)}
+# Divide the code into multiple files
 @sudo.command()
 async def react(ctx):
-    count = 0
-    def check(reaction, user):  # Our check for the reaction        
-        return user == ctx.message.author  # We check that only the authors reaction counts
-
-    await ctx.send("Please react to the message!")  # Message to react to
-
-    reaction = await sudo.wait_for("reaction_add", check=check)  # Wait for a reaction
-    count += 1
-    await ctx.send(f"count increased by 1, it is currently {count} ")
-    await ctx.send(f"You reacted with: {reaction[0]}")  # With [0] we only display the emoji
+    doc_ref = db.collection('users').document(str(ctx.author.id))
+    teams = {
+        "team_A": "🇦",
+        "team_B": "🇧",
+        "team_C": "🇨"
+    }
+    await ctx.send("This is the daily message!")  # Message to react to
+    reaction = await sudo.wait_for("reaction_add")  # Wait for a reaction
+    userTeam = doc_ref.get().get("team")
+    if str(reaction[0]) == teams[(userTeam)]:
+        await addLogs(ctx, 1)
 
 @sudo.command()
 async def viewUserData(ctx):
