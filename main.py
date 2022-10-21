@@ -41,9 +41,48 @@ async def on_ready():
 #   Team B: Obj -> {Name (Str), Emote (Str), Points (Int), Members (List)}
 #   Team C: Obj -> {Name (Str), Emote (Str), Points (Int), Members (List)}
 # Divide the code into multiple files
+
+#Completely resets the team statistics table by creating entirely new teams
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def addTeams(ctx):
+    #TODO: This should only add one team to the database
+    team_names = ["team_A", "team_B", "team_C"]
+    for name in team_names:
+        team_ref = db.collection('teams').document()
+        team_ref.set ({
+            'name': name,
+            'points': 0,
+            'member_count': 3
+        })
+        await ctx.send(f"team {name} has been created")
+
+#TODO: Make a function that deletes all teams from database
+
+#Gets the number of people that are currently on a specific team
+@sudo.command()
+async def getTeamCount(ctx, team_name):
+    count = 0
+    user_ref = db.collection(u'users')
+    docs = user_ref.stream()
+    for doc in docs:
+        doc_ref = db.collection('users').document(str(doc.id))
+        if (doc_ref.get().get("team") == team_name):
+            count += 1
+    await ctx.send(f"teamcount is {count}")
+    return count
+
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def assignTeams(ctx, team_count):
+    #TODO: Assign each member to a random team
+    #Make sure that each team has an equal number of people
+    return
+
+
 @sudo.command()
 async def react(ctx):
-    doc_ref = db.collection('users').document(str(ctx.author.id))
+    user_ref = db.collection('users').document(str(ctx.author.id))
     teams = {
         "team_A": "🇦",
         "team_B": "🇧",
@@ -51,7 +90,7 @@ async def react(ctx):
     }
     await ctx.send("This is the daily message!")  # Message to react to
     reaction = await sudo.wait_for("reaction_add")  # Wait for a reaction
-    userTeam = doc_ref.get().get("team")
+    userTeam = user_ref.get().get("team")
     if str(reaction[0]) == teams[(userTeam)]:
         await addLogs(ctx, 1)
 
