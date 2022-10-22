@@ -6,6 +6,7 @@ from firebase_admin import firestore
 from discord.ext import commands
 from discord.utils import get
 import logging
+import teams
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 
@@ -45,19 +46,41 @@ async def on_ready():
 #Completely resets the team statistics table by creating entirely new teams
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def addTeams(ctx):
-    #TODO: This should only add one team to the database
-    team_names = ["team_A", "team_B", "team_C"]
-    for name in team_names:
+async def addTeams(ctx, team_count):
+    print(f"add team function starts here")
+    print(f"team count is {team_count}")
+    for team_num in range(team_count):
+        print(f"team num is {team_num}")
         team_ref = db.collection('teams').document()
+        team_letter = str(chr(ord('@') + (team_num + 1)))
+        print(f"team letter is {team_letter}")
+        
         team_ref.set ({
-            'name': name,
+            'team_name': "team_" + {team_letter},
             'points': 0,
-            'member_count': 3
+            'member_count': 3,
+            'member_list': []
         })
-        await ctx.send(f"team {name} has been created")
+        team_name = team_ref.get().get("team_name")
 
-#TODO: Make a function that deletes all teams from database
+        await ctx.send(f"{team_name} has been created")
+
+# #TODO: Make a function that deletes all teams from database
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def removeAllTeams(ctx):
+    team_ref = db.collection(u'teams')
+    docs = team_ref.stream()
+    for doc in docs:
+        await ctx.send(f'{doc.id} is being removed')
+        db.collection(u'teams').document(str(doc.id)).delete()
+        
+@sudo.command()
+async def viewTeams(ctx):
+    team_ref = db.collection(u'teams')
+    docs = team_ref.stream()
+    for doc in docs:
+        await ctx.send(f'{doc.id} => {doc.to_dict()}')
 
 #Gets the number of people that are currently on a specific team
 @sudo.command()
@@ -75,10 +98,11 @@ async def getTeamCount(ctx, team_name):
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def assignTeams(ctx, team_count):
+
     #TODO: Assign each member to a random team
     #Make sure that each team has an equal number of people
-    return
 
+    return
 
 @sudo.command()
 async def react(ctx):
