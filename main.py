@@ -47,22 +47,18 @@ async def on_ready():
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def addTeams(ctx, team_count):
-    print(f"add team function starts here")
-    print(f"team count is {team_count}")
-    for team_num in range(team_count):
-        print(f"team num is {team_num}")
-        team_ref = db.collection('teams').document()
+    team_num = 0
+    for team_num in range(int(team_count)):
         team_letter = str(chr(ord('@') + (team_num + 1)))
-        print(f"team letter is {team_letter}")
-        
+        team_ref = db.collection('teams').document(team_letter)
         team_ref.set ({
-            'team_name': "team_" + {team_letter},
+            'team_name': "team_" + team_letter,
+            'emote': team_letter,
             'points': 0,
-            'member_count': 3,
-            'member_list': []
+            'member_list': [],
+            'member_count': 0,
         })
         team_name = team_ref.get().get("team_name")
-
         await ctx.send(f"{team_name} has been created")
 
 # #TODO: Make a function that deletes all teams from database
