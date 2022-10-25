@@ -7,6 +7,7 @@ from discord.ext import commands
 from discord.utils import get
 import logging
 import teams
+from itertools import accumulate
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 
@@ -91,13 +92,32 @@ async def getTeamCount(ctx, team_name):
     await ctx.send(f"teamcount is {count}")
     return count
 
+#Gets the number of people that are participating in the habits competition
+@sudo.command()
+async def getMemberCount(ctx):
+    count = 0
+    user_ref = db.collection(u'users')
+    docs = user_ref.stream()
+    for x in docs:
+        count += 1
+    await ctx.send(f"member count is {count}")
+    return count
+
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def assignTeams(ctx, team_count):
-
+async def assignTeams(ctx, number_of_teams):
     #TODO: Assign each member to a random team
     #Make sure that each team has an equal number of people
-
+    #number of people playing
+    member_count = await getMemberCount(ctx)
+    user_ref = db.collection(u'users')
+    docs = user_ref.stream()
+    if number_of_teams % member_count != 0:
+        await ctx.send("teams are unequal, please try again")
+        return
+    team_member_count = member_count / number_of_teams
+    
+    
     return
 
 @sudo.command()
