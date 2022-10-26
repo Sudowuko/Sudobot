@@ -105,19 +105,37 @@ async def getMemberCount(ctx):
 
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def assignTeams(ctx, number_of_teams):
+async def assignTeams(ctx, team_count):
     #TODO: Assign each member to a random team
     #Make sure that each team has an equal number of people
     #number of people playing
     member_count = await getMemberCount(ctx)
-    user_ref = db.collection(u'users')
-    docs = user_ref.stream()
-    if number_of_teams % member_count != 0:
+    if team_count % member_count != 0:
+        print(f"team_count: {team_count}")
+        print(f"member_count: {member_count}")
         await ctx.send("teams are unequal, please try again")
         return
-    team_member_count = member_count / number_of_teams
-    
-    
+    amount_per_team = member_count / team_count
+    count = 0
+    team_num = 0
+    user_ref = db.collection(u'users')
+    docs = user_ref.stream()
+    for doc in docs:
+        if count == amount_per_team:
+            team_num += 1
+            count = 0
+        doc_ref = db.collection('users').document(str(doc.id))
+        team_letter = str(chr(ord('@') + (team_num + 1)))
+            # 0. Have a list of users that needs to be assigned a team
+            # 1. Get a random document to get a random user
+            # 2. Assign that user to a team
+        doc_ref.update({"team": "team_" + team_letter})
+        team = doc_ref.get().get("team")
+        await ctx.send(f"user with {doc.id}'s team has been updated to {team}")
+            # 3. Remove it from the list of users that need to be assigned
+            # 4. Increase count by 1 and repeat the entire process
+        count += 1
+            #Try to complete this non-randomized first, then randomize it afterwards
     return
 
 @sudo.command()
