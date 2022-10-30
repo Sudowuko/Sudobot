@@ -8,6 +8,7 @@ from discord.utils import get
 import logging
 import teams
 from itertools import accumulate
+import random
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 
@@ -79,6 +80,18 @@ async def viewTeams(ctx):
     for doc in docs:
         await ctx.send(f'{doc.id} => {doc.to_dict()}')
 
+#gets random user from document collection
+@sudo.command()
+async def getRandomUser(ctx):
+    user_ref = db.collection('users')
+    random_list = []
+    docs = user_ref.stream()
+    for doc in docs:
+        random_list.append(doc.id)
+    random_user = random.choice(random_list)
+    await ctx.send(f"random user ID is {random_user}") 
+    return random_user
+
 #Gets the number of people that are currently on a specific team
 @sudo.command()
 async def getTeamCount(ctx, team_name):
@@ -104,6 +117,15 @@ async def getMemberCount(ctx):
     return count
 
 @sudo.command()
+async def organizeTeams(ctx):
+    member_list = ["A", "B", "C", "D", "E", "F"]
+    teams_list = [1, 2, 3]
+    team_cap = len(member_list) / len(teams_list)
+    # Create a dictionary to assign a team cap to each element in the team list
+    # for every member assigned, add its team count to the team cap
+    # then remove the team from list if the cap is reached
+    # ideally this should end in random teams 
+@sudo.command()
 @commands.has_permissions(administrator=True)
 async def assignTeams(ctx, team_count):
     #TODO: Assign each member to a random team
@@ -120,18 +142,25 @@ async def assignTeams(ctx, team_count):
     team_num = 0
     user_ref = db.collection(u'users')
     docs = user_ref.stream()
+    print("entering loop")
     for doc in docs:
+        #For now ignore doc, and just try to assign a user to a random team regardless
+        print("loop is working")
+        user_id = await getRandomUser(ctx)
+        username = await userSearch(ctx, user_id)
+        await ctx.send(f"user chosen is {username}")
         if count == amount_per_team:
             team_num += 1
             count = 0
-        doc_ref = db.collection('users').document(str(doc.id))
+        doc_ref = db.collection('users').document(str(user_id))
         team_letter = str(chr(ord('@') + (team_num + 1)))
             # 0. Have a list of users that needs to be assigned a team
             # 1. Get a random document to get a random user
             # 2. Assign that user to a team
         doc_ref.update({"team": "team_" + team_letter})
+        print(f"seeing if team can be obtained")
         team = doc_ref.get().get("team")
-        await ctx.send(f"user with {doc.id}'s team has been updated to {team}")
+        await ctx.send(f"user with {username}'s team has been updated to {team}")
             # 3. Remove it from the list of users that need to be assigned
             # 4. Increase count by 1 and repeat the entire process
         count += 1
