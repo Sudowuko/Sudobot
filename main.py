@@ -117,65 +117,27 @@ async def getMemberCount(ctx):
     return count
 
 @sudo.command()
+@commands.has_permissions(administrator=True)
 async def organizeTeams(ctx):
-    member_list = ["A", "B", "C", "D", "E", "F"]
-    randomized_list = []
-    teams_dict = {
-        "team_A": 0,
-        "team_B": 0,
-        "team_C": 0
-    }
-    team_cap = len(member_list) / len(teams_dict)
-    for member in member_list:
+    #member_count = await getMemberCount(ctx)
+    teams_dict = {}
+    #Update teams_dict based on existing teams
+    team_ref = db.collection(u'teams')
+    all_teams = team_ref.stream()
+    for team in all_teams:
+        teams_dict[team.id] = 0
+  # For now, create an arbitrary team cap, since there is no function get the count of participating members
+    team_cap = 4 # len(member_count) / len(teams_dict)
+    user_ref = db.collection(u'users')
+    docs = user_ref.stream()
+    for doc in docs:
         key = random.choice(list(teams_dict))
-        randomized_list.append(key)
+        doc_ref = db.collection('users').document(str(doc.id))
+        doc_ref.update({"team": key})
         teams_dict[key] += 1
         if teams_dict[key] == team_cap:
             teams_dict.pop(str(key))
-    await ctx.send(f"randomized team is {randomized_list}")
-    print(f"randomized team is {randomized_list}")
-
-@sudo.command()
-@commands.has_permissions(administrator=True)
-async def assignTeams(ctx, team_count):
-    #TODO: Assign each member to a random team
-    #Make sure that each team has an equal number of people
-    #number of people playing
-    member_count = await getMemberCount(ctx)
-    if team_count % member_count != 0:
-        print(f"team_count: {team_count}")
-        print(f"member_count: {member_count}")
-        await ctx.send("teams are unequal, please try again")
-        return
-    amount_per_team = member_count / team_count
-    count = 0
-    team_num = 0
-    user_ref = db.collection(u'users')
-    docs = user_ref.stream()
-    print("entering loop")
-    for doc in docs:
-        #For now ignore doc, and just try to assign a user to a random team regardless
-        print("loop is working")
-        user_id = await getRandomUser(ctx)
-        username = await userSearch(ctx, user_id)
-        await ctx.send(f"user chosen is {username}")
-        if count == amount_per_team:
-            team_num += 1
-            count = 0
-        doc_ref = db.collection('users').document(str(user_id))
-        team_letter = str(chr(ord('@') + (team_num + 1)))
-            # 0. Have a list of users that needs to be assigned a team
-            # 1. Get a random document to get a random user
-            # 2. Assign that user to a team
-        doc_ref.update({"team": "team_" + team_letter})
-        print(f"seeing if team can be obtained")
-        team = doc_ref.get().get("team")
-        await ctx.send(f"user with {username}'s team has been updated to {team}")
-            # 3. Remove it from the list of users that need to be assigned
-            # 4. Increase count by 1 and repeat the entire process
-        count += 1
-            #Try to complete this non-randomized first, then randomize it afterwards
-    return
+    await ctx.send("team updates finished")
 
 @sudo.command()
 async def react(ctx):
@@ -234,6 +196,7 @@ async def changeHabit(ctx, *, habit_name):
     await ctx.send(f"{ctx.author}'s habit is now {habit_name}")
 
 #sets user stats for tokens, quests, monthly logs, team, and habit
+#TODO: Add discord username into user statistics
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def setUserStats(ctx, token_count, monthly_log_count, team_name, habit_name, quest_count, streak_count, mvp_count, win_count, purchase_count):
