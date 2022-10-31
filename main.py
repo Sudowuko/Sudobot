@@ -119,12 +119,22 @@ async def getMemberCount(ctx):
 @sudo.command()
 async def organizeTeams(ctx):
     member_list = ["A", "B", "C", "D", "E", "F"]
-    teams_list = [1, 2, 3]
-    team_cap = len(member_list) / len(teams_list)
-    # Create a dictionary to assign a team cap to each element in the team list
-    # for every member assigned, add its team count to the team cap
-    # then remove the team from list if the cap is reached
-    # ideally this should end in random teams 
+    randomized_list = []
+    teams_dict = {
+        "team_A": 0,
+        "team_B": 0,
+        "team_C": 0
+    }
+    team_cap = len(member_list) / len(teams_dict)
+    for member in member_list:
+        key = random.choice(list(teams_dict))
+        randomized_list.append(key)
+        teams_dict[key] += 1
+        if teams_dict[key] == team_cap:
+            teams_dict.pop(str(key))
+    await ctx.send(f"randomized team is {randomized_list}")
+    print(f"randomized team is {randomized_list}")
+
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def assignTeams(ctx, team_count):
