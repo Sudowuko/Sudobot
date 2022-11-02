@@ -38,7 +38,6 @@ async def on_ready():
 #Takes in user points based on specific reactions
 # TODO: Add score for multiple reactions (I.e. this currently stops after one reaction)
 # Afterwards add a feature that only allows users to get max one point per message 
-# Create team database which is better for data management
 # Team Database 
 #   Team A: Obj -> {Name (Str), Emote (Str), Points (Int), Members (List)}
 #   Team B: Obj -> {Name (Str), Emote (Str), Points (Int), Members (List)}
@@ -63,22 +62,23 @@ async def addTeams(ctx, team_count):
         team_name = team_ref.get().get("team_name")
         await ctx.send(f"{team_name} has been created")
 
-# #TODO: Make a function that deletes all teams from database
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def removeAllTeams(ctx):
+async def deleteAllTeams(ctx):
     team_ref = db.collection(u'teams')
     docs = team_ref.stream()
     for doc in docs:
         await ctx.send(f'{doc.id} is being removed')
         db.collection(u'teams').document(str(doc.id)).delete()
-        
+
 @sudo.command()
-async def viewTeams(ctx):
-    team_ref = db.collection(u'teams')
-    docs = team_ref.stream()
+async def resetTeams(ctx):
+    user_ref = db.collection(u'users')
+    docs = user_ref.stream()
     for doc in docs:
-        await ctx.send(f'{doc.id} => {doc.to_dict()}')
+        doc_ref = db.collection(u'users').document(str(doc.id))
+        doc_ref.update({"team": "N/A"})
+    await ctx.send("teams have been reset successfully")
 
 #gets random user from document collection
 @sudo.command()
@@ -114,13 +114,13 @@ async def getMemberCount(ctx):
     for doc in docs:
         doc_ref = db.collection('users').document(str(doc.id))
         registered = doc_ref.get().get("registered")
-        username = doc_ref.get().get("username")
         if (registered == True):
-            print(f"true registered for {username} is {registered}")
             count += 1
     await ctx.send(f"member count is {count}")
     return count
 
+#TODO: For each member that gets assigned a team, make sure that the teams database is also updated
+# What has to be updated is the member count and member list in the teams database
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def organizeTeams(ctx):
@@ -131,14 +131,15 @@ async def organizeTeams(ctx):
     all_teams = team_ref.stream()
     for team in all_teams:
         teams_dict[team.id] = 0
-    print(f"# of teams is {len(teams_dict)} and member count is {member_count}")
     team_cap = int(member_count / len(teams_dict))
-    print(f"team cap is {team_cap}")
     user_ref = db.collection(u'users')
     docs = user_ref.stream()    
     for doc in docs:
-        key = random.choice(list(teams_dict))
         doc_ref = db.collection('users').document(str(doc.id))
+        registered = doc_ref.get().get("registered") 
+        if (registered == False):
+            continue
+        key = random.choice(list(teams_dict))
         doc_ref.update({"team": key})
         teams_dict[key] += 1
         if teams_dict[key] == team_cap:
@@ -158,14 +159,6 @@ async def react(ctx):
     userTeam = user_ref.get().get("team")
     if str(reaction[0]) == teams[(userTeam)]:
         await addLogs(ctx, 1)
-
-@sudo.command()
-async def viewUserData(ctx):
-    users_ref = db.collection(u'users')
-    docs = users_ref.stream()
-
-    for doc in docs:
-        await ctx.send(f'{doc.id} => {doc.to_dict()}')
 
 #adds user token amount
 @sudo.command()
@@ -302,12 +295,6 @@ async def addPurchases(ctx, purchase_count):
     tokens = doc_ref.get().get("tokens")
     purchases = doc_ref.get().get("purchases")
     await ctx.send(f"Spent {int(purchase_count)} tokens on purchases with a total spending of {purchases}. {ctx.author} now has {tokens} remaining.")
-
-@sudo.command()
-async def checkUsername(ctx):
-    doc_ref = db.collection('users').document(str(ctx.author.id))
-    username = doc_ref.get().get("username")
-    await ctx.send(f"Username is {username}")
 
 @sudo.command()
 async def listUsers(ctx):
