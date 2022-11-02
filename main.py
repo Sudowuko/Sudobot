@@ -111,25 +111,31 @@ async def getMemberCount(ctx):
     count = 0
     user_ref = db.collection(u'users')
     docs = user_ref.stream()
-    for x in docs:
-        count += 1
+    for doc in docs:
+        doc_ref = db.collection('users').document(str(doc.id))
+        registered = doc_ref.get().get("registered")
+        username = doc_ref.get().get("username")
+        if (registered == True):
+            print(f"true registered for {username} is {registered}")
+            count += 1
     await ctx.send(f"member count is {count}")
     return count
 
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def organizeTeams(ctx):
-    #member_count = await getMemberCount(ctx)
+    member_count = await getMemberCount(ctx)
     teams_dict = {}
     #Update teams_dict based on existing teams
     team_ref = db.collection(u'teams')
     all_teams = team_ref.stream()
     for team in all_teams:
         teams_dict[team.id] = 0
-  # For now, create an arbitrary team cap, since there is no function get the count of participating members
-    team_cap = 4 # len(member_count) / len(teams_dict)
+    print(f"# of teams is {len(teams_dict)} and member count is {member_count}")
+    team_cap = int(member_count / len(teams_dict))
+    print(f"team cap is {team_cap}")
     user_ref = db.collection(u'users')
-    docs = user_ref.stream()
+    docs = user_ref.stream()    
     for doc in docs:
         key = random.choice(list(teams_dict))
         doc_ref = db.collection('users').document(str(doc.id))
@@ -202,6 +208,7 @@ async def changeHabit(ctx, *, habit_name):
 async def setUserStats(ctx, token_count, monthly_log_count, team_name, habit_name, quest_count, streak_count, mvp_count, win_count, purchase_count):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.set({
+        'username': str(ctx.author),
         'tokens': int(token_count),
         'monthly_logs': int(monthly_log_count),
         'team': team_name,
@@ -210,7 +217,8 @@ async def setUserStats(ctx, token_count, monthly_log_count, team_name, habit_nam
         'streaks': int(streak_count),
         'mvp': int(mvp_count),
         'wins': int(win_count),
-        'purchases': int(purchase_count)
+        'purchases': int(purchase_count),
+        'registered': False
 
     })
     await ctx.send(f"User stats for {ctx.author} has been set")
@@ -237,7 +245,6 @@ async def viewCalculations(ctx, arg=None):
     wins = doc_ref.get().get("wins")
     purchases = doc_ref.get().get("purchases")
     await ctx.send(f"**Token Calculations for {ctx.author}** \n ```Tokens: {tokens} \nQuests {quests} \nStreaks: {streaks} \nMVP: {mvp} \nWins:  {wins} \nPurchases: {purchases}``` ")
-
 
 #add commands for tokens database
 
@@ -296,7 +303,6 @@ async def addPurchases(ctx, purchase_count):
     purchases = doc_ref.get().get("purchases")
     await ctx.send(f"Spent {int(purchase_count)} tokens on purchases with a total spending of {purchases}. {ctx.author} now has {tokens} remaining.")
 
-
 @sudo.command()
 async def checkUsername(ctx):
     doc_ref = db.collection('users').document(str(ctx.author.id))
@@ -324,6 +330,12 @@ def userSearch(guild, userkey):
             continue
     return results
 
+def convertStringToBool(value):
+    true_values = ["TRUE", "True", "true"]
+    if value in true_values:
+        return True
+    return False
+
 #mass updates user tokens by taking in an import list 
 #TODO: Team and habit columns can only take in one word, potential solution is converting this function to import a CSV
 @sudo.command()
@@ -334,8 +346,8 @@ async def importUserData(ctx):
     message_list = message.split("\n")[1:]
     users = {}
     for i, row in enumerate(message_list):
-        columns = row.rsplit(maxsplit=9)
-        if len(columns) != 10:
+        columns = row.rsplit(maxsplit=10)
+        if len(columns) != 11:
             errors.append(f"could not parse row {i+1}, must have a value for username, token, monthly logs, team name, and habit name")
         username = columns[0]
         try:
@@ -349,7 +361,8 @@ async def importUserData(ctx):
                 'streaks': int(columns[6]),
                 'mvp': int(columns[7]),
                 'wins': int(columns[8]),
-                'purchases': int(columns[9])
+                'purchases': int(columns[9]),
+                'registered': convertStringToBool(columns[10])
                 }
         except ValueError:
             errors.append(f"ValueError {username} is ambiguous on row {i+1}")
@@ -410,8 +423,6 @@ async def listAllTeamDetails(ctx):
         if user.exists:
             team = user.get('team')
             habit = user.get('habit')
-        else:
-            token = 0
         user_table.append((str(i), team, habit))
     user_table[1:] = sorted(user_table[1:], key=lambda x: x[1], reverse=True)
     message = [f"{name:<30}{team:<20}{habit:<30}" for name, team, habit in user_table]
