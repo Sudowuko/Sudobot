@@ -56,7 +56,7 @@ async def addTeams(ctx, team_count):
             'team_name': "team_" + team_letter,
             'emote': team_letter,
             'points': 0,
-            'member_list': [],
+            'member_list': list(),
             'member_count': 0,
         })
         team_name = team_ref.get().get("team_name")
@@ -65,18 +65,18 @@ async def addTeams(ctx, team_count):
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def deleteAllTeams(ctx):
-    team_ref = db.collection(u'teams')
+    team_ref = db.collection('teams')
     docs = team_ref.stream()
     for doc in docs:
         await ctx.send(f'{doc.id} is being removed')
-        db.collection(u'teams').document(str(doc.id)).delete()
+        db.collection('teams').document(str(doc.id)).delete()
 
 @sudo.command()
 async def resetTeams(ctx):
-    user_ref = db.collection(u'users')
+    user_ref = db.collection('users')
     docs = user_ref.stream()
     for doc in docs:
-        doc_ref = db.collection(u'users').document(str(doc.id))
+        doc_ref = db.collection('users').document(str(doc.id))
         doc_ref.update({"team": "N/A"})
     await ctx.send("teams have been reset successfully")
 
@@ -96,7 +96,7 @@ async def getRandomUser(ctx):
 @sudo.command()
 async def getTeamCount(ctx, team_name):
     count = 0
-    user_ref = db.collection(u'users')
+    user_ref = db.collection('users')
     docs = user_ref.stream()
     for doc in docs:
         doc_ref = db.collection('users').document(str(doc.id))
@@ -109,7 +109,7 @@ async def getTeamCount(ctx, team_name):
 @sudo.command()
 async def getMemberCount(ctx):
     count = 0
-    user_ref = db.collection(u'users')
+    user_ref = db.collection('users')
     docs = user_ref.stream()
     for doc in docs:
         doc_ref = db.collection('users').document(str(doc.id))
@@ -127,23 +127,40 @@ async def organizeTeams(ctx):
     member_count = await getMemberCount(ctx)
     teams_dict = {}
     #Update teams_dict based on existing teams
-    team_ref = db.collection(u'teams')
+    team_ref = db.collection('teams')
     all_teams = team_ref.stream()
+    #Make sure that the member count for each team is also 0 before organizing teams
+    #TODO Use the reset teams function before organizing all participating users
     for team in all_teams:
+        doc_ref = db.collection('teams').document(str(team.id))
+        doc_ref.update({"member_count": 0})
         teams_dict[team.id] = 0
     team_cap = int(member_count / len(teams_dict))
-    user_ref = db.collection(u'users')
+    user_ref = db.collection('users')
     docs = user_ref.stream()    
     for doc in docs:
+        key = random.choice(list(teams_dict))
+        print("Entering loop")
+        print(f"key is {key}")
         doc_ref = db.collection('users').document(str(doc.id))
+        team_ref = db.collection('teams').document(str(key))
         registered = doc_ref.get().get("registered") 
+        username = doc_ref.get().get("username")
+        print(f"team ref is defined using key {key}")
         if (registered == False):
             continue
-        key = random.choice(list(teams_dict))
         doc_ref.update({"team": key})
+        print(f"doc ref is defined")
+        team_ref.update({"member_count": firestore.Increment(1)})
+        print(f"member count works")
+        member_list = team_ref.get().get("member_list")
+        print(f"type of member_list is {type(member_list)}")
+        team_ref.update({"member_list": firestore.ArrayUnion([username])})
+        print(f"member list works")
         teams_dict[key] += 1
         if teams_dict[key] == team_cap:
             teams_dict.pop(str(key))
+        print("continuing loop")
     await ctx.send("team updates finished")
 
 @sudo.command()
@@ -198,7 +215,7 @@ async def changeHabit(ctx, *, habit_name):
 #TODO: Add discord username into user statistics
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def setUserStats(ctx, token_count, monthly_log_count, team_name, habit_name, quest_count, streak_count, mvp_count, win_count, purchase_count):
+async def setUserStats(ctx, token_count, monthly_log_count, team_name, habit_name, quest_count, streak_count, mvp_count, win_count, purchase_count, registered):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.set({
         'username': str(ctx.author),
@@ -211,7 +228,7 @@ async def setUserStats(ctx, token_count, monthly_log_count, team_name, habit_nam
         'mvp': int(mvp_count),
         'wins': int(win_count),
         'purchases': int(purchase_count),
-        'registered': False
+        'registered': convertStringToBool(registered)
 
     })
     await ctx.send(f"User stats for {ctx.author} has been set")
