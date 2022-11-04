@@ -45,6 +45,7 @@ async def on_ready():
 # Divide the code into multiple files
 
 #Completely resets the team statistics table by creating entirely new teams
+#TODO: emote currently takes on the string "A" instead of the actual emote for reacting
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def addTeams(ctx, team_count):
@@ -134,29 +135,22 @@ async def organizeTeams(ctx):
     for team in all_teams:
         doc_ref = db.collection('teams').document(str(team.id))
         doc_ref.update({"member_count": 0})
+        doc_ref.update({"member_list": list()})
         teams_dict[team.id] = 0
     team_cap = int(member_count / len(teams_dict))
     user_ref = db.collection('users')
-    docs = user_ref.stream()    
+    docs = user_ref.stream() 
     for doc in docs:
         key = random.choice(list(teams_dict))
-        print("Entering loop")
-        print(f"key is {key}")
         doc_ref = db.collection('users').document(str(doc.id))
         team_ref = db.collection('teams').document(str(key))
         registered = doc_ref.get().get("registered") 
         username = doc_ref.get().get("username")
-        print(f"team ref is defined using key {key}")
         if (registered == False):
             continue
         doc_ref.update({"team": key})
-        print(f"doc ref is defined")
         team_ref.update({"member_count": firestore.Increment(1)})
-        print(f"member count works")
-        member_list = team_ref.get().get("member_list")
-        print(f"type of member_list is {type(member_list)}")
         team_ref.update({"member_list": firestore.ArrayUnion([username])})
-        print(f"member list works")
         teams_dict[key] += 1
         if teams_dict[key] == team_cap:
             teams_dict.pop(str(key))
@@ -165,17 +159,29 @@ async def organizeTeams(ctx):
 
 @sudo.command()
 async def react(ctx):
-    user_ref = db.collection('users').document(str(ctx.author.id))
-    teams = {
-        "team_A": "🇦",
-        "team_B": "🇧",
-        "team_C": "🇨"
-    }
-    await ctx.send("This is the daily message!")  # Message to react to
-    reaction = await sudo.wait_for("reaction_add")  # Wait for a reaction
-    userTeam = user_ref.get().get("team")
-    if str(reaction[0]) == teams[(userTeam)]:
-        await addLogs(ctx, 1)
+    msg = await ctx.send("React first to win")
+    team_ref = db.collection('teams')
+    docs = team_ref.stream()
+    team_id = ""
+    emote = ""
+    for doc in docs:
+        doc_ref = db.collection('teams').document(str(doc.id))
+        emote = doc_ref.get().get("emote")
+        await msg.add_reaction(str(emote))    
+    #Checking to see if the user reacts with the correct emote
+    def check(reaction, user):
+        user_ref = db.collection('users').document(user.id)
+        user_team = user_ref.get().get("team")
+        for doc in docs:
+            doc_ref = db.collection('teams').document(str(doc.id))
+            if doc_ref.get().get("team_name") == user_team:
+                team_id = doc.id
+                emote = doc_ref.get().get("emote")
+        return str(reaction.emoji) == str(emote) and user != sudo.user
+    reaction, user = await sudo.wait_for('reaction_add', check=check)    
+    
+    # Will wait until a user reacts with the specified checks then continue on with the code
+    await ctx.send(f"Congratulations {user}'s points for your team has been updated!")
 
 #adds user token amount
 @sudo.command()
