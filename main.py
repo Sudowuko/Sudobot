@@ -50,12 +50,23 @@ async def on_ready():
 @commands.has_permissions(administrator=True)
 async def addTeams(ctx, team_count):
     team_num = 0
+    #Potential team emoji list
+    emojis = {
+    "A" : "🇦",
+    "B" : "🇧",
+    "C" : "🇨",
+    "D" : "🇩",
+    "E" : "🇪",
+    "F" : "🇫",
+    "G" : "🇬",
+    "H" : "🇭"
+    }
     for team_num in range(int(team_count)):
         team_letter = str(chr(ord('@') + (team_num + 1)))
         team_ref = db.collection('teams').document(team_letter)
         team_ref.set ({
             'team_name': "team_" + team_letter,
-            'emote': team_letter,
+            'emote': emojis[team_letter],
             'points': 0,
             'member_list': list(),
             'member_count': 0,
@@ -154,7 +165,6 @@ async def organizeTeams(ctx):
         teams_dict[key] += 1
         if teams_dict[key] == team_cap:
             teams_dict.pop(str(key))
-        print("continuing loop")
     await ctx.send("team updates finished")
 
 @sudo.command()
@@ -162,22 +172,18 @@ async def react(ctx):
     msg = await ctx.send("React first to win")
     team_ref = db.collection('teams')
     docs = team_ref.stream()
-    team_id = ""
-    emote = ""
+    team_emote = ""
     for doc in docs:
         doc_ref = db.collection('teams').document(str(doc.id))
-        emote = doc_ref.get().get("emote")
-        await msg.add_reaction(str(emote))    
+        team_emote = doc_ref.get().get("emote")
+        await msg.add_reaction(str(team_emote))    
     #Checking to see if the user reacts with the correct emote
     def check(reaction, user):
-        user_ref = db.collection('users').document(user.id)
+        user_ref = db.collection('users').document(str(user.id))
         user_team = user_ref.get().get("team")
-        for doc in docs:
-            doc_ref = db.collection('teams').document(str(doc.id))
-            if doc_ref.get().get("team_name") == user_team:
-                team_id = doc.id
-                emote = doc_ref.get().get("emote")
-        return str(reaction.emoji) == str(emote) and user != sudo.user
+        team_ref = db.collection('teams').document(str(user_team))
+        team_emote = team_ref.get().get("emote")
+        return str(reaction.emoji) == str(team_emote) and user != sudo.user
     reaction, user = await sudo.wait_for('reaction_add', check=check)    
     
     # Will wait until a user reacts with the specified checks then continue on with the code
@@ -308,7 +314,7 @@ async def addWins(ctx, win_count):
     wins = doc_ref.get().get("wins")
     await ctx.send(f"Added {int(win_count)} wins and now {ctx.author} has {wins} wins earned in total. {ctx.author} has also gained {int(win_count) * 700} tokens and now has a total of {tokens} tokens.")
 
-#adds to pruchase amount
+#adds to purchase amount
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def addPurchases(ctx, purchase_count):
