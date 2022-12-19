@@ -42,7 +42,18 @@ async def on_ready():
 #   Team A: Obj -> {Name (Str), Emote (Str), Points (Int), Members (List)}
 #   Team B: Obj -> {Name (Str), Emote (Str), Points (Int), Members (List)}
 #   Team C: Obj -> {Name (Str), Emote (Str), Points (Int), Members (List)}
+
 # Divide the code into multiple files
+
+#File 1
+#Teams.py
+# Contains teams functions for adding, deleting, and editing
+
+#File 2
+#User.py
+# Contains all the functions that involve modifying user stats 
+# Could involve modifying individual users or all users as a whole
+
 
 #Completely resets the team statistics table by creating entirely new teams
 #TODO: emote currently takes on the string "A" instead of the actual emote for reacting
@@ -167,27 +178,33 @@ async def organizeTeams(ctx):
             teams_dict.pop(str(key))
     await ctx.send("team updates finished")
 
+#TODO: Multiple users need to be able to react to this message to add points for their team
 @sudo.command()
-async def react(ctx):
-    msg = await ctx.send("React first to win")
-    team_ref = db.collection('teams')
-    docs = team_ref.stream()
-    team_emote = ""
-    for doc in docs:
-        doc_ref = db.collection('teams').document(str(doc.id))
-        team_emote = doc_ref.get().get("emote")
-        await msg.add_reaction(str(team_emote))    
-    #Checking to see if the user reacts with the correct emote
-    def check(reaction, user):
-        user_ref = db.collection('users').document(str(user.id))
-        user_team = user_ref.get().get("team")
-        team_ref = db.collection('teams').document(str(user_team))
-        team_emote = team_ref.get().get("emote")
-        return str(reaction.emoji) == str(team_emote) and user != sudo.user
-    reaction, user = await sudo.wait_for('reaction_add', check=check)    
+async def dailyMessage(ctx):
+    count = 0
+    while count < 5:
+        msg = await ctx.send("React with your team emote to complete your habit!")
+        team_ref = db.collection('teams')
+        docs = team_ref.stream()
+        #team_emote = ""
+        for doc in docs:
+            doc_ref = db.collection('teams').document(str(doc.id))
+            team_emote = doc_ref.get().get("emote")
+            await msg.add_reaction(str(team_emote))    
+        #Checking to see if the user reacts with the correct emote
+        def correctReaction(reaction, user):
+            user_ref = db.collection('users').document(str(user.id))
+            user_team = user_ref.get().get("team")
+            team_ref = db.collection('teams').document(str(user_team))
+            team_emote = team_ref.get().get("emote")
+            if str(reaction.emoji) == str(team_emote): # and user != sudo.user:
+                team_ref.update({"points": firestore.Increment(1)})
+                return True
+        reaction, user = await sudo.wait_for('reaction_add', check=correctReaction)
+        # Will wait until a user reacts with the specified checks then continue on with the code
+        await ctx.send(f"Congratulations {user}'s points for your team has been updated!")
+        count += 1
     
-    # Will wait until a user reacts with the specified checks then continue on with the code
-    await ctx.send(f"Congratulations {user}'s points for your team has been updated!")
 
 #adds user token amount
 @sudo.command()
