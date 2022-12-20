@@ -178,33 +178,37 @@ async def organizeTeams(ctx):
             teams_dict.pop(str(key))
     await ctx.send("team updates finished")
 
-#TODO: Multiple users need to be able to react to this message to add points for their team
+
+#TODO: reaction_records and daily_logs needs to be added to the database so whenever the bot restarts, the information stored here isn't lost
+reaction_records = {}
+daily_logs = []
+
+@sudo.event
+async def on_raw_reaction_add(payload):
+    # Get the message ID, emoji, and user ID from the payload
+    message_id = payload.message_id
+    emoji = payload.emoji
+    user_id = payload.user_id
+    team_ref = db.collection('teams')
+   # Check if the reaction is for a message that we want to track
+    if message_id in daily_logs:
+        if (user_id, message_id) in reaction_records:
+            return
+        reaction_records[(user_id, message_id)] = True
+        user_ref = db.collection('users').document(str(user_id))
+        user_team = user_ref.get().get("team")
+        team_ref = db.collection('teams').document(str(user_team))
+        team_emote = team_ref.get().get("emote")
+        #TODO: If a user reacts with their emote multiple times, it gives multiple points
+        if str(emoji) == str(team_emote):
+            team_ref.update({"points": firestore.Increment(1)})
+
+#TODO: Daily message should include code to figure out what month it is, include team role pings, and channel links
 @sudo.command()
 async def dailyMessage(ctx):
-    count = 0
-    while count < 5:
-        msg = await ctx.send("React with your team emote to complete your habit!")
-        team_ref = db.collection('teams')
-        docs = team_ref.stream()
-        #team_emote = ""
-        for doc in docs:
-            doc_ref = db.collection('teams').document(str(doc.id))
-            team_emote = doc_ref.get().get("emote")
-            await msg.add_reaction(str(team_emote))    
-        #Checking to see if the user reacts with the correct emote
-        def correctReaction(reaction, user):
-            user_ref = db.collection('users').document(str(user.id))
-            user_team = user_ref.get().get("team")
-            team_ref = db.collection('teams').document(str(user_team))
-            team_emote = team_ref.get().get("emote")
-            if str(reaction.emoji) == str(team_emote): # and user != sudo.user:
-                team_ref.update({"points": firestore.Increment(1)})
-                return True
-        reaction, user = await sudo.wait_for('reaction_add', check=correctReaction)
-        # Will wait until a user reacts with the specified checks then continue on with the code
-        await ctx.send(f"Congratulations {user}'s points for your team has been updated!")
-        count += 1
-    
+    formatted_message = f"**Daily Habit Challenge**\n\n **Family November to December Competition**\n\n Hello fam!! \n\nThis is your daily reminder that it's time to log your habits!! \n\nDon't forget to react with your Team Emote if you have completed your habit today! \n\nIf you want to share more about what you did or talk about any other topics, feel free to use challenger-chat \n\nHope you had a fantastic day and good luck for tomorrow!!"
+    message = await ctx.send(formatted_message)
+    daily_logs.append(message.id)
 
 #adds user token amount
 @sudo.command()
