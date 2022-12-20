@@ -6,6 +6,9 @@ from firebase_admin import firestore
 from discord.ext import commands
 from discord.utils import get
 import logging
+import teams
+from itertools import accumulate
+import random
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 
@@ -30,31 +33,182 @@ sudo = commands.Bot(intents=intents, command_prefix='!')
 
 @sudo.event
 async def on_ready():
-    print("checking print statement!")
-    print(discord.__version__)
     print("Logged in as a bot {0.user}".format(sudo))
 
 #Takes in user points based on specific reactions
+# TODO: Add score for multiple reactions (I.e. this currently stops after one reaction)
+# Afterwards add a feature that only allows users to get max one point per message 
+# Team Database 
+#   Team A: Obj -> {Name (Str), Emote (Str), Points (Int), Members (List)}
+#   Team B: Obj -> {Name (Str), Emote (Str), Points (Int), Members (List)}
+#   Team C: Obj -> {Name (Str), Emote (Str), Points (Int), Members (List)}
+
+# Divide the code into multiple files
+
+#File 1
+#Teams.py
+# Contains teams functions for adding, deleting, and editing
+
+#File 2
+#User.py
+# Contains all the functions that involve modifying user stats 
+# Could involve modifying individual users or all users as a whole
+
+
+#Completely resets the team statistics table by creating entirely new teams
+#TODO: emote currently takes on the string "A" instead of the actual emote for reacting
 @sudo.command()
-async def react(ctx):
-    count = 0
-    def check(reaction, user):  # Our check for the reaction        
-        return user == ctx.message.author  # We check that only the authors reaction counts
-
-    await ctx.send("Please react to the message!")  # Message to react to
-
-    reaction = await sudo.wait_for("reaction_add", check=check)  # Wait for a reaction
-    count += 1
-    await ctx.send(f"count increased by 1, it is currently {count} ")
-    await ctx.send(f"You reacted with: {reaction[0]}")  # With [0] we only display the emoji
+@commands.has_permissions(administrator=True)
+async def addTeams(ctx, team_count):
+    team_num = 0
+    #Potential team emoji list
+    emojis = {
+    "A" : "🇦",
+    "B" : "🇧",
+    "C" : "🇨",
+    "D" : "🇩",
+    "E" : "🇪",
+    "F" : "🇫",
+    "G" : "🇬",
+    "H" : "🇭"
+    }
+    for team_num in range(int(team_count)):
+        team_letter = str(chr(ord('@') + (team_num + 1)))
+        team_ref = db.collection('teams').document(team_letter)
+        team_ref.set ({
+            'team_name': "team_" + team_letter,
+            'emote': emojis[team_letter],
+            'points': 0,
+            'member_list': list(),
+            'member_count': 0,
+        })
+        team_name = team_ref.get().get("team_name")
+        await ctx.send(f"{team_name} has been created")
 
 @sudo.command()
-async def viewUserData(ctx):
-    users_ref = db.collection(u'users')
-    docs = users_ref.stream()
-
+@commands.has_permissions(administrator=True)
+async def deleteAllTeams(ctx):
+    team_ref = db.collection('teams')
+    docs = team_ref.stream()
     for doc in docs:
-        await ctx.send(f'{doc.id} => {doc.to_dict()}')
+        await ctx.send(f'{doc.id} is being removed')
+        db.collection('teams').document(str(doc.id)).delete()
+
+@sudo.command()
+async def resetTeams(ctx):
+    user_ref = db.collection('users')
+    docs = user_ref.stream()
+    for doc in docs:
+        doc_ref = db.collection('users').document(str(doc.id))
+        doc_ref.update({"team": "N/A"})
+    await ctx.send("teams have been reset successfully")
+
+#gets random user from document collection
+@sudo.command()
+async def getRandomUser(ctx):
+    user_ref = db.collection('users')
+    random_list = []
+    docs = user_ref.stream()
+    for doc in docs:
+        random_list.append(doc.id)
+    random_user = random.choice(random_list)
+    await ctx.send(f"random user ID is {random_user}") 
+    return random_user
+
+#Gets the number of people that are currently on a specific team
+@sudo.command()
+async def getTeamCount(ctx, team_name):
+    count = 0
+    user_ref = db.collection('users')
+    docs = user_ref.stream()
+    for doc in docs:
+        doc_ref = db.collection('users').document(str(doc.id))
+        if (doc_ref.get().get("team") == team_name):
+            count += 1
+    await ctx.send(f"teamcount is {count}")
+    return count
+
+#Gets the number of people that are participating in the habits competition
+@sudo.command()
+async def getMemberCount(ctx):
+    count = 0
+    user_ref = db.collection('users')
+    docs = user_ref.stream()
+    for doc in docs:
+        doc_ref = db.collection('users').document(str(doc.id))
+        registered = doc_ref.get().get("registered")
+        if (registered == True):
+            count += 1
+    await ctx.send(f"member count is {count}")
+    return count
+
+#TODO: For each member that gets assigned a team, make sure that the teams database is also updated
+# What has to be updated is the member count and member list in the teams database
+@sudo.command()
+@commands.has_permissions(administrator=True)
+async def organizeTeams(ctx):
+    member_count = await getMemberCount(ctx)
+    teams_dict = {}
+    #Update teams_dict based on existing teams
+    team_ref = db.collection('teams')
+    all_teams = team_ref.stream()
+    #Make sure that the member count for each team is also 0 before organizing teams
+    #TODO Use the reset teams function before organizing all participating users
+    for team in all_teams:
+        doc_ref = db.collection('teams').document(str(team.id))
+        doc_ref.update({"member_count": 0})
+        doc_ref.update({"member_list": list()})
+        teams_dict[team.id] = 0
+    team_cap = int(member_count / len(teams_dict))
+    user_ref = db.collection('users')
+    docs = user_ref.stream() 
+    for doc in docs:
+        key = random.choice(list(teams_dict))
+        doc_ref = db.collection('users').document(str(doc.id))
+        team_ref = db.collection('teams').document(str(key))
+        registered = doc_ref.get().get("registered") 
+        username = doc_ref.get().get("username")
+        if (registered == False):
+            continue
+        doc_ref.update({"team": key})
+        team_ref.update({"member_count": firestore.Increment(1)})
+        team_ref.update({"member_list": firestore.ArrayUnion([username])})
+        teams_dict[key] += 1
+        if teams_dict[key] == team_cap:
+            teams_dict.pop(str(key))
+    await ctx.send("team updates finished")
+
+
+#TODO: reaction_records and daily_logs needs to be added to the database so whenever the bot restarts, the information stored here isn't lost
+reaction_records = {}
+daily_logs = []
+
+@sudo.event
+async def on_raw_reaction_add(payload):
+    # Get the message ID, emoji, and user ID from the payload
+    message_id = payload.message_id
+    emoji = payload.emoji
+    user_id = payload.user_id
+    team_ref = db.collection('teams')
+   # Check if the reaction is for a message that we want to track
+    if message_id in daily_logs:
+        if (user_id, message_id) in reaction_records:
+            return
+        reaction_records[(user_id, message_id)] = True
+        user_ref = db.collection('users').document(str(user_id))
+        user_team = user_ref.get().get("team")
+        team_ref = db.collection('teams').document(str(user_team))
+        team_emote = team_ref.get().get("emote")
+        #TODO: If a user reacts with their emote multiple times, it gives multiple points
+        if str(emoji) == str(team_emote):
+            team_ref.update({"points": firestore.Increment(1)})
+
+#TODO: Daily message should include code to figure out what month it is, include team role pings, and channel links
+@sudo.command()
+async def dailyMessage(ctx):
+    formatted_message = f"**Daily Habit Challenge**\n\n **Family November to December Competition**\n\n Hello fam!! \n\nThis is your daily reminder that it's time to log your habits!! \n\nDon't forget to react with your Team Emote if you have completed your habit today! \n\nIf you want to share more about what you did or talk about any other topics, feel free to use challenger-chat \n\nHope you had a fantastic day and good luck for tomorrow!!"
+    message = await ctx.send(formatted_message)
+    daily_logs.append(message.id)
 
 #adds user token amount
 @sudo.command()
@@ -91,11 +245,13 @@ async def changeHabit(ctx, *, habit_name):
     await ctx.send(f"{ctx.author}'s habit is now {habit_name}")
 
 #sets user stats for tokens, quests, monthly logs, team, and habit
+#TODO: Add discord username into user statistics
 @sudo.command()
 @commands.has_permissions(administrator=True)
-async def setUserStats(ctx, token_count, monthly_log_count, team_name, habit_name, quest_count, streak_count, mvp_count, win_count, purchase_count):
+async def setUserStats(ctx, token_count, monthly_log_count, team_name, habit_name, quest_count, streak_count, mvp_count, win_count, purchase_count, registered):
     doc_ref = db.collection('users').document(str(ctx.author.id))
     doc_ref.set({
+        'username': str(ctx.author),
         'tokens': int(token_count),
         'monthly_logs': int(monthly_log_count),
         'team': team_name,
@@ -104,7 +260,8 @@ async def setUserStats(ctx, token_count, monthly_log_count, team_name, habit_nam
         'streaks': int(streak_count),
         'mvp': int(mvp_count),
         'wins': int(win_count),
-        'purchases': int(purchase_count)
+        'purchases': int(purchase_count),
+        'registered': convertStringToBool(registered)
 
     })
     await ctx.send(f"User stats for {ctx.author} has been set")
@@ -131,7 +288,6 @@ async def viewCalculations(ctx, arg=None):
     wins = doc_ref.get().get("wins")
     purchases = doc_ref.get().get("purchases")
     await ctx.send(f"**Token Calculations for {ctx.author}** \n ```Tokens: {tokens} \nQuests {quests} \nStreaks: {streaks} \nMVP: {mvp} \nWins:  {wins} \nPurchases: {purchases}``` ")
-
 
 #add commands for tokens database
 
@@ -179,7 +335,7 @@ async def addWins(ctx, win_count):
     wins = doc_ref.get().get("wins")
     await ctx.send(f"Added {int(win_count)} wins and now {ctx.author} has {wins} wins earned in total. {ctx.author} has also gained {int(win_count) * 700} tokens and now has a total of {tokens} tokens.")
 
-#adds to pruchase amount
+#adds to purchase amount
 @sudo.command()
 @commands.has_permissions(administrator=True)
 async def addPurchases(ctx, purchase_count):
@@ -189,13 +345,6 @@ async def addPurchases(ctx, purchase_count):
     tokens = doc_ref.get().get("tokens")
     purchases = doc_ref.get().get("purchases")
     await ctx.send(f"Spent {int(purchase_count)} tokens on purchases with a total spending of {purchases}. {ctx.author} now has {tokens} remaining.")
-
-
-@sudo.command()
-async def checkUsername(ctx):
-    doc_ref = db.collection('users').document(str(ctx.author.id))
-    username = doc_ref.get().get("username")
-    await ctx.send(f"Username is {username}")
 
 @sudo.command()
 async def listUsers(ctx):
@@ -218,6 +367,12 @@ def userSearch(guild, userkey):
             continue
     return results
 
+def convertStringToBool(value):
+    true_values = ["TRUE", "True", "true"]
+    if value in true_values:
+        return True
+    return False
+
 #mass updates user tokens by taking in an import list 
 #TODO: Team and habit columns can only take in one word, potential solution is converting this function to import a CSV
 @sudo.command()
@@ -228,8 +383,8 @@ async def importUserData(ctx):
     message_list = message.split("\n")[1:]
     users = {}
     for i, row in enumerate(message_list):
-        columns = row.rsplit(maxsplit=9)
-        if len(columns) != 10:
+        columns = row.rsplit(maxsplit=10)
+        if len(columns) != 11:
             errors.append(f"could not parse row {i+1}, must have a value for username, token, monthly logs, team name, and habit name")
         username = columns[0]
         try:
@@ -243,7 +398,8 @@ async def importUserData(ctx):
                 'streaks': int(columns[6]),
                 'mvp': int(columns[7]),
                 'wins': int(columns[8]),
-                'purchases': int(columns[9])
+                'purchases': int(columns[9]),
+                'registered': convertStringToBool(columns[10])
                 }
         except ValueError:
             errors.append(f"ValueError {username} is ambiguous on row {i+1}")
@@ -304,8 +460,6 @@ async def listAllTeamDetails(ctx):
         if user.exists:
             team = user.get('team')
             habit = user.get('habit')
-        else:
-            token = 0
         user_table.append((str(i), team, habit))
     user_table[1:] = sorted(user_table[1:], key=lambda x: x[1], reverse=True)
     message = [f"{name:<30}{team:<20}{habit:<30}" for name, team, habit in user_table]
